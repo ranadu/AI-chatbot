@@ -3,3 +3,5 @@ uvicorn
 openai
 python-dotenv
 sqlite-utils
+requests
+httpx
