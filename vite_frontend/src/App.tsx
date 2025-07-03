@@ -9,11 +9,14 @@ function App() {
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({
+          user: 'demo-user',  // can be dynamic later
+          message,
+        }),
       });
 
       const data = await response.json();
-      setReply(data.reply || 'No response from backend');
+      setReply(data.response || 'No response from backend');
     } catch (error) {
       console.error('Error sending message:', error);
       setReply('Error contacting the server');
