@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 import requests
-from memory.memory_store import init_db, save_interaction, get_past_interactions
+from backend.memory.memory_store import init_db, save_interaction, get_past_interactions
 
 load_dotenv()
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
