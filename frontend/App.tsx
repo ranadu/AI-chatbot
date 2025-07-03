@@ -1,9 +1,19 @@
 import React, { useState } from 'react';
-import { SafeAreaView, ScrollView, Text, TextInput, TouchableOpacity, View, KeyboardAvoidingView, Platform } from 'react-native';
+import {
+  SafeAreaView,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
 import axios from 'axios';
+import { VITE_API_BASE_URL } from '@env';
 
 export default function App() {
-  const [messages, setMessages] = useState<{ sender: 'user' | 'bot', text: string }[]>([]);
+  const [messages, setMessages] = useState<{ sender: 'user' | 'bot'; text: string }[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -16,7 +26,7 @@ export default function App() {
     setLoading(true);
 
     try {
-      const res = await axios.post('http://10.52.63.16:8000/chat', {
+      const res = await axios.post(`${VITE_API_BASE_URL}/chat`, {
         user: 'robert',
         message: userMessage.text,
       });
@@ -24,7 +34,10 @@ export default function App() {
       const botMessage = { sender: 'bot', text: res.data.response };
       setMessages((prev) => [...prev, botMessage]);
     } catch (error) {
-      const errMessage = { sender: 'bot', text: "Wahala o! I couldn't reach the brain right now. Try again later." };
+      const errMessage = {
+        sender: 'bot',
+        text: "Wahala o! I couldn't reach the brain right now. Try again later.",
+      };
       setMessages((prev) => [...prev, errMessage]);
     }
 
@@ -33,14 +46,8 @@ export default function App() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1 }}
-      >
-        <ScrollView
-          style={{ flex: 1, padding: 16 }}
-          contentContainerStyle={{ paddingBottom: 80 }}
-        >
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+        <ScrollView style={{ flex: 1, padding: 16 }} contentContainerStyle={{ paddingBottom: 80 }}>
           {messages.map((msg, idx) => (
             <View
               key={idx}
