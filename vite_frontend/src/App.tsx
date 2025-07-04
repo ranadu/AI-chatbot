@@ -11,7 +11,9 @@ import {
 import SendIcon from "@mui/icons-material/Send"
 import { motion } from "framer-motion"
 import axios from "axios"
+import qs from "qs"
 
+// Ensure strict typing with string literals
 type Message = {
   type: "user" | "bot"
   content: string
@@ -27,35 +29,31 @@ function App() {
   const handleSend = async () => {
     if (!input.trim()) return
 
-    const updatedMessages = [...messages, { type: "user", content: input }]
-    setMessages(updatedMessages)
+    const userMsg: Message = { type: "user", content: input }
+    const newMessages: Message[] = [...messages, userMsg]
+    setMessages(newMessages)
     setInput("")
     setLoading(true)
 
     try {
       const response = await axios.post(
         "https://ai-chatbot-8g4u.onrender.com/chat",
-        {
-          user: "web",
-          message: input,
-        },
+        qs.stringify({ user: "web", message: input }),
         {
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type": "application/x-www-form-urlencoded",
           },
         }
       )
 
-      const botMessage = response.data.response
-      setMessages([...updatedMessages, { type: "bot", content: botMessage }])
+      const botMsg: Message = { type: "bot", content: response.data.response }
+      setMessages([...newMessages, botMsg])
     } catch (error) {
-      setMessages([
-        ...updatedMessages,
-        {
-          type: "bot",
-          content: "Wahala. Something no work. Try again later.",
-        },
-      ])
+      const errorMsg: Message = {
+        type: "bot",
+        content: "Wahala. Something no work. Try again later.",
+      }
+      setMessages([...newMessages, errorMsg])
     } finally {
       setLoading(false)
     }
