@@ -9,7 +9,6 @@ import {
   Tab,
   Tooltip,
   Fade,
-  useMediaQuery,
   useTheme,
 } from "@mui/material"
 import SendIcon from "@mui/icons-material/Send"
@@ -21,7 +20,7 @@ import { useEffect, useRef, useState } from "react"
 import { motion } from "framer-motion"
 import { nanoid } from "nanoid"
 import axios from "axios"
-import Picker from "emoji-picker-react"
+import Picker, { EmojiClickData } from "emoji-picker-react"
 
 type Message = {
   type: "user" | "bot"
@@ -43,7 +42,7 @@ function App() {
     {
       id: nanoid(),
       title: "Chat 1",
-      messages: [{ type: "bot" as "bot", content: "Omo! Wetin dey? How far, my guy?", timestamp: getTime() }],
+      messages: [{ type: "bot", content: "Omo! Wetin dey? How far, my guy?", timestamp: getTime() }],
     },
   ])
   const [activeSession, setActiveSession] = useState(0)
@@ -53,7 +52,6 @@ function App() {
   const [showEmoji, setShowEmoji] = useState(false)
 
   const theme = useTheme()
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
 
   const handleSend = async () => {
     if (!input.trim()) return
@@ -95,7 +93,7 @@ function App() {
     const newSession: ChatSession = {
       id: nanoid(),
       title: `Chat ${sessions.length + 1}`,
-      messages: [{ type: "bot" as "bot", content: "Omo! Wetin dey? How far, my guy?", timestamp: getTime() }],
+      messages: [{ type: "bot", content: "Omo! Wetin dey? How far, my guy?", timestamp: getTime() }],
     }
     setSessions([...sessions, newSession])
     setActiveSession(sessions.length)
@@ -156,7 +154,7 @@ function App() {
           scrollButtons="auto"
           sx={{ mb: 2 }}
         >
-          {sessions.map((sesh, i) => (
+          {sessions.map((sesh) => (
             <Tab key={sesh.id} label={sesh.title} />
           ))}
         </Tabs>
@@ -219,7 +217,7 @@ function App() {
             {showEmoji && (
               <Box sx={{ mb: 1, alignSelf: "flex-start" }}>
                 <Picker
-                  onEmojiClick={(e, emojiObj) => setInput(prev => prev + emojiObj.emoji)}
+                  onEmojiClick={(emojiObj: EmojiClickData) => setInput(prev => prev + emojiObj.emoji)}
                   skinTonesDisabled
                   searchDisabled
                 />
