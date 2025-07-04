@@ -1,26 +1,26 @@
+import { useState, useRef, useEffect } from "react"
 import {
-  Box,
   Container,
-  Paper,
-  Typography,
   TextField,
   IconButton,
+  Paper,
+  Typography,
+  Box,
+  Tooltip,
+  AppBar,
+  Toolbar,
   Tabs,
   Tab,
-  Tooltip,
-  Fade,
+  Button,
 } from "@mui/material"
 import SendIcon from "@mui/icons-material/Send"
-import AddIcon from "@mui/icons-material/Add"
 import DeleteIcon from "@mui/icons-material/Delete"
 import LightModeIcon from "@mui/icons-material/LightMode"
 import DarkModeIcon from "@mui/icons-material/DarkMode"
-import { useEffect, useRef, useState } from "react"
+import EmojiPicker from "emoji-picker-react"
 import { motion } from "framer-motion"
-import { nanoid } from "nanoid"
 import axios from "axios"
-import Picker from "emoji-picker-react"
-import type { EmojiClickData } from "emoji-picker-react"
+import { v4 as uuidv4 } from "uuid"
 
 type Message = {
   type: "user" | "bot"
@@ -34,214 +34,237 @@ type ChatSession = {
   messages: Message[]
 }
 
-const getTime = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-
 function App() {
-  const scrollRef = useRef<HTMLDivElement | null>(null)
   const [sessions, setSessions] = useState<ChatSession[]>([
     {
-      id: nanoid(),
-      title: "Chat 1",
-      messages: [{ type: "bot", content: "Omo! Wetin dey? How far, my guy?", timestamp: getTime() }],
+      id: uuidv4(),
+      title: "New Chat",
+      messages: [
+        {
+          type: "bot",
+          content: "Omo! Wetin dey? How far, my guy?",
+          timestamp: new Date().toLocaleTimeString(),
+        },
+      ],
     },
   ])
-  const [activeSession, setActiveSession] = useState(0)
+  const [currentSession, setCurrentSession] = useState(0)
   const [input, setInput] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [darkMode, setDarkMode] = useState(false)
-  const [showEmoji, setShowEmoji] = useState(false)
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [darkMode, setDarkMode] = useState(true)
+  const chatEndRef = useRef<HTMLDivElement | null>(null)
 
-  const theme = useTheme()
+  const currentMessages = sessions[currentSession].messages
+
+  const scrollToBottom = () => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }
+
+  useEffect(() => {
+    scrollToBottom()
+  }, [currentMessages])
 
   const handleSend = async () => {
     if (!input.trim()) return
 
-    const newMsg: Message = { type: "user", content: input, timestamp: getTime() }
-    const updated = [...sessions]
-    updated[activeSession].messages.push(newMsg)
-    setSessions(updated)
+    const timestamp = new Date().toLocaleTimeString()
+    const userMsg: Message = { type: "user", content: input, timestamp }
+    const updatedMessages = [...currentMessages, userMsg]
+    const updatedSessions = [...sessions]
+    updatedSessions[currentSession].messages = updatedMessages
+    setSessions(updatedSessions)
     setInput("")
-    setLoading(true)
 
     try {
-      const res = await axios.post("https://ai-chatbot-8g4u.onrender.com/chat", {
-        user: "web",
-        message: newMsg.content,
-      })
-
-      const botResponse: Message = {
+      const response = await axios.post(
+        "https://ai-chatbot-8g4u.onrender.com/chat",
+        {
+          user: "web",
+          message: input,
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      )
+      const botReply: Message = {
         type: "bot",
-        content: res.data.response || res.data.message || "No response",
-        timestamp: getTime(),
+        content: response.data.response || "No response",
+        timestamp: new Date().toLocaleTimeString(),
       }
-
-      updated[activeSession].messages.push(botResponse)
-      setSessions([...updated])
+      updatedSessions[currentSession].messages.push(botReply)
+      setSessions([...updatedSessions])
     } catch {
-      updated[activeSession].messages.push({
+      const errorMsg: Message = {
         type: "bot",
         content: "Wahala. Something no work. Try again later.",
-        timestamp: getTime(),
-      })
-      setSessions([...updated])
-    } finally {
-      setLoading(false)
+        timestamp: new Date().toLocaleTimeString(),
+      }
+      updatedSessions[currentSession].messages.push(errorMsg)
+      setSessions([...updatedSessions])
     }
   }
 
-  const handleNewChat = () => {
+  const handleEmojiClick = (emojiData: any) => {
+    setInput((prev) => prev + emojiData.emoji)
+  }
+
+  const startNewChat = () => {
     const newSession: ChatSession = {
-      id: nanoid(),
+      id: uuidv4(),
       title: `Chat ${sessions.length + 1}`,
-      messages: [{ type: "bot", content: "Omo! Wetin dey? How far, my guy?", timestamp: getTime() }],
+      messages: [
+        {
+          type: "bot",
+          content: "Omo! Wetin dey? How far, my guy?",
+          timestamp: new Date().toLocaleTimeString(),
+        },
+      ],
     }
     setSessions([...sessions, newSession])
-    setActiveSession(sessions.length)
+    setCurrentSession(sessions.length)
   }
 
-  const handleClear = () => {
-    const updated = [...sessions]
-    updated[activeSession].messages = []
-    setSessions(updated)
+  const clearCurrentChat = () => {
+    const cleared = [...sessions]
+    cleared[currentSession].messages = [
+      {
+        type: "bot",
+        content: "Omo! Wetin dey? How far, my guy?",
+        timestamp: new Date().toLocaleTimeString(),
+      },
+    ]
+    setSessions(cleared)
   }
-
-  useEffect(() => {
-    scrollRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [sessions[activeSession].messages])
 
   return (
     <Box
       sx={{
         minHeight: "100vh",
-        background: darkMode
-          ? "radial-gradient(circle at top left, #0f0c29, #302b63, #000)"
-          : "linear-gradient(135deg, #f0f4ff, #d9e4ff)",
-        transition: "background 0.4s ease-in-out",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        p: 2,
-      }}
-    >
-      <Container maxWidth="md" component={Paper} elevation={12} sx={{
-        p: 3,
-        borderRadius: 4,
-        background: darkMode ? "#1e1e2f" : "#fff",
+        bgcolor: darkMode ? "#1a1a2e" : "#f5f5f5",
         color: darkMode ? "#fff" : "#000",
-        minHeight: "80vh",
         display: "flex",
         flexDirection: "column",
-      }}>
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-          <Typography variant="h5" fontWeight="bold">
-            🤖 Naija ChatBot
-          </Typography>
-          <Box display="flex" gap={1}>
-            <Tooltip title="New Chat"><IconButton onClick={handleNewChat}><AddIcon /></IconButton></Tooltip>
-            <Tooltip title="Clear Chat"><IconButton onClick={handleClear}><DeleteIcon /></IconButton></Tooltip>
-            <Tooltip title={darkMode ? "Light Mode" : "Dark Mode"}>
-              <IconButton onClick={() => setDarkMode(!darkMode)}>
+      }}
+    >
+      <AppBar position="static" color={darkMode ? "default" : "primary"}>
+        <Toolbar sx={{ justifyContent: "space-between" }}>
+          <Typography variant="h6">Naija ChatBot 🇳🇬</Typography>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <Tooltip title="Toggle Theme">
+              <IconButton color="inherit" onClick={() => setDarkMode(!darkMode)}>
                 {darkMode ? <LightModeIcon /> : <DarkModeIcon />}
               </IconButton>
             </Tooltip>
+            <Tooltip title="New Chat">
+              <Button variant="outlined" onClick={startNewChat}>
+                New Chat
+              </Button>
+            </Tooltip>
+            <Tooltip title="Clear Chat">
+              <IconButton color="inherit" onClick={clearCurrentChat}>
+                <DeleteIcon />
+              </IconButton>
+            </Tooltip>
           </Box>
-        </Box>
+        </Toolbar>
+      </AppBar>
 
-        <Tabs
-          value={activeSession}
-          onChange={(_, val) => setActiveSession(val)}
-          variant="scrollable"
-          scrollButtons="auto"
-          sx={{ mb: 2 }}
-        >
-          {sessions.map((sesh) => (
-            <Tab key={sesh.id} label={sesh.title} />
-          ))}
-        </Tabs>
+      <Tabs
+        value={currentSession}
+        onChange={(_, newValue) => setCurrentSession(newValue)}
+        variant="scrollable"
+        scrollButtons="auto"
+        sx={{
+          bgcolor: darkMode ? "#0f0f1a" : "#e0e0e0",
+        }}
+      >
+        {sessions.map((s, idx) => (
+          <Tab key={s.id} label={s.title} />
+        ))}
+      </Tabs>
 
-        <Box sx={{
+      <Container
+        maxWidth="md"
+        component={Paper}
+        elevation={6}
+        sx={{
           flex: 1,
-          overflowY: "auto",
-          pr: 1,
-          mb: 2,
+          mt: 2,
+          mb: 1,
+          p: 3,
+          borderRadius: 3,
+          background: darkMode ? "#2e2e3a" : "#ffffff",
+          overflow: "auto",
           display: "flex",
           flexDirection: "column",
-        }}>
-          {sessions[activeSession].messages.map((msg, idx) => (
-            <motion.div
-              key={idx}
-              initial={{ opacity: 0, x: msg.type === "user" ? 50 : -50 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ type: "spring", stiffness: 300, damping: 20 }}
+        }}
+      >
+        {currentMessages.map((msg, i) => (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <Box
+              sx={{
+                mb: 2,
+                display: "flex",
+                justifyContent: msg.type === "user" ? "flex-end" : "flex-start",
+              }}
             >
               <Box
                 sx={{
-                  display: "flex",
-                  justifyContent: msg.type === "user" ? "flex-end" : "flex-start",
-                  mb: 1,
+                  px: 2,
+                  py: 1,
+                  borderRadius: 2,
+                  maxWidth: "75%",
+                  backgroundColor: msg.type === "user" ? "#2196f3" : "#eeeeee",
+                  color: msg.type === "user" ? "#fff" : "#000",
+                  boxShadow: 2,
+                  transition: "transform 0.2s",
+                  "&:hover": {
+                    transform: "translateY(-2px)",
+                  },
                 }}
               >
-                <Paper
-                  elevation={3}
-                  sx={{
-                    px: 2,
-                    py: 1,
-                    maxWidth: "75%",
-                    backgroundColor: msg.type === "user" ? "#1976d2" : (darkMode ? "#333" : "#eee"),
-                    color: msg.type === "user" ? "#fff" : (darkMode ? "#fff" : "#000"),
-                    borderRadius: 3,
-                    "&:hover": {
-                      transform: "translateY(-2px)",
-                      transition: "0.2s ease-in-out",
-                    },
-                  }}
-                >
-                  <Typography variant="body2">{msg.content}</Typography>
-                  <Typography variant="caption" sx={{ display: "block", mt: 0.5, opacity: 0.6 }}>
-                    {msg.timestamp}
-                  </Typography>
-                </Paper>
+                <Typography>{msg.content}</Typography>
+                <Typography variant="caption" sx={{ opacity: 0.6, fontSize: "0.75em" }}>
+                  {msg.timestamp}
+                </Typography>
               </Box>
-            </motion.div>
-          ))}
-          {loading && (
-            <Typography variant="body2" align="center" sx={{ opacity: 0.6, mb: 2 }}>
-              Bot is typing...
-            </Typography>
-          )}
-          <div ref={scrollRef} />
-        </Box>
-
-        <Fade in timeout={800}>
-          <Box display="flex" gap={1} flexDirection="column">
-            {showEmoji && (
-              <Box sx={{ mb: 1, alignSelf: "flex-start" }}>
-                <Picker
-                  onEmojiClick={(emojiObj: EmojiClickData) => setInput(prev => prev + emojiObj.emoji)}
-                  skinTonesDisabled
-                  searchDisabled
-                />
-              </Box>
-            )}
-            <Box display="flex" gap={1}>
-              <TextField
-                fullWidth
-                placeholder="Ask me anything... 🇳🇬"
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && handleSend()}
-                variant="outlined"
-              />
-              <IconButton onClick={() => setShowEmoji(p => !p)}>
-                😊
-              </IconButton>
-              <IconButton onClick={handleSend} color="primary">
-                <SendIcon />
-              </IconButton>
             </Box>
-          </Box>
-        </Fade>
+          </motion.div>
+        ))}
+        <div ref={chatEndRef} />
       </Container>
+
+      <Box sx={{ px: 3, pb: 2 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <TextField
+            fullWidth
+            variant="outlined"
+            placeholder="Talk to your guy... 🇳🇬"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSend()}
+            sx={{ animation: "fadeIn 1s ease-in-out" }}
+          />
+          <IconButton onClick={() => setShowEmojiPicker((prev) => !prev)}>
+            😊
+          </IconButton>
+          <IconButton color="primary" onClick={handleSend}>
+            <SendIcon />
+          </IconButton>
+        </Box>
+        {showEmojiPicker && (
+          <Box mt={1}>
+            <EmojiPicker onEmojiClick={handleEmojiClick} />
+          </Box>
+        )}
+      </Box>
     </Box>
   )
 }
