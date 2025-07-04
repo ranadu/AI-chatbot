@@ -6,7 +6,6 @@ import {
   Paper,
   Typography,
   Box,
-  CircularProgress,
 } from "@mui/material"
 import SendIcon from "@mui/icons-material/Send"
 import { motion } from "framer-motion"
@@ -27,7 +26,6 @@ function App() {
     },
   ])
   const [input, setInput] = useState("")
-  const [loading, setLoading] = useState(false)
   const [isTyping, setIsTyping] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -51,7 +49,6 @@ function App() {
     setMessages(newMessages)
     setInput("")
     setIsTyping(true)
-    setLoading(true)
 
     try {
       const response = await axios.post(
@@ -76,11 +73,9 @@ function App() {
         timestamp: new Date().toLocaleTimeString(),
       }
 
-      // Add a typing delay to simulate realism
       setTimeout(() => {
         setMessages((prev) => [...prev, botReply])
         setIsTyping(false)
-        setLoading(false)
       }, 1000)
     } catch (err) {
       const errorMsg: Message = {
@@ -90,7 +85,6 @@ function App() {
       }
       setMessages([...newMessages, errorMsg])
       setIsTyping(false)
-      setLoading(false)
     }
   }
 
@@ -179,13 +173,22 @@ function App() {
                   <Typography variant="body2" sx={{ wordBreak: "break-word" }}>
                     {msg.content}
                   </Typography>
-                  <Typography variant="caption" sx={{ mt: 0.5, display: "block", textAlign: msg.type === "user" ? "right" : "left", opacity: 0.6 }}>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      mt: 0.5,
+                      display: "block",
+                      textAlign: msg.type === "user" ? "right" : "left",
+                      opacity: 0.6,
+                    }}
+                  >
                     {msg.timestamp}
                   </Typography>
                 </Box>
               </Box>
             </motion.div>
           ))}
+
           {isTyping && (
             <Box sx={{ display: "flex", justifyContent: "flex-start", mb: 1 }}>
               <Box
