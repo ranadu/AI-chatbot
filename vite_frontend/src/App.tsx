@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import {
   Container,
   TextField,
@@ -23,6 +23,7 @@ function App() {
   ])
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
+  const scrollRef = useRef<HTMLDivElement>(null)
 
   const handleSend = async () => {
     if (!input.trim()) return
@@ -35,21 +36,16 @@ function App() {
     try {
       const response = await axios.post(
         "https://ai-chatbot-8g4u.onrender.com/chat",
-        {
-          user: "web",
-          message: input,
-        },
+        new URLSearchParams({ user: "web", message: input }),
         {
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type": "application/x-www-form-urlencoded",
           },
         }
       )
 
-      const botMessage: string = response.data.response || response.data.message || "No response"
-      const newBotMsg: Message = { type: "bot", content: botMessage }
-
-      setMessages([...newMessages, newBotMsg])
+      const botMessage = response.data.response
+      setMessages([...newMessages, { type: "bot", content: botMessage }])
     } catch (error) {
       setMessages([
         ...newMessages,
@@ -60,15 +56,22 @@ function App() {
     }
   }
 
+  useEffect(() => {
+    scrollRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [messages])
+
   return (
-    <Box
-      sx={{
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.6 }}
+      style={{
         minHeight: "100vh",
         background: "linear-gradient(135deg, #0f0c29, #302b63, #24243e)",
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
-        padding: 2,
+        padding: "16px",
       }}
     >
       <Container
@@ -88,7 +91,12 @@ function App() {
           variant="h5"
           align="center"
           gutterBottom
-          sx={{ fontWeight: "bold", display: "flex", alignItems: "center", justifyContent: "center" }}
+          sx={{
+            fontWeight: "bold",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
         >
           <span role="img" aria-label="chatbot" style={{ marginRight: 8 }}>
             🤖
@@ -109,7 +117,7 @@ function App() {
               key={i}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
+              transition={{ duration: 0.3, delay: i * 0.05 }}
             >
               <Box
                 sx={{
@@ -118,44 +126,60 @@ function App() {
                   justifyContent: msg.type === "user" ? "flex-end" : "flex-start",
                 }}
               >
-                <Box
-                  sx={{
-                    px: 2,
-                    py: 1,
-                    borderRadius: 2,
+                <motion.div
+                  initial={{ scale: 0.95 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: "spring", stiffness: 260, damping: 20 }}
+                  style={{
+                    padding: "8px 16px",
+                    borderRadius: "16px",
                     maxWidth: "75%",
                     backgroundColor: msg.type === "user" ? "#1976d2" : "#eee",
                     color: msg.type === "user" ? "white" : "black",
-                    boxShadow: 1,
+                    boxShadow: "0px 1px 3px rgba(0, 0, 0, 0.2)",
                   }}
                 >
                   {msg.content}
-                </Box>
+                </motion.div>
               </Box>
             </motion.div>
           ))}
           {loading && (
-            <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3 }}
+              style={{ display: "flex", justifyContent: "center", marginTop: 12 }}
+            >
               <CircularProgress size={24} />
-            </Box>
+            </motion.div>
           )}
+          <div ref={scrollRef} />
         </Box>
 
         <Box sx={{ display: "flex", gap: 1 }}>
-          <TextField
-            fullWidth
-            variant="outlined"
-            placeholder="Ask me anything... 🇳🇬"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSend()}
-          />
-          <IconButton color="primary" onClick={handleSend}>
-            <SendIcon />
-          </IconButton>
+          <motion.div
+            whileFocus={{ scale: 1.02 }}
+            whileHover={{ scale: 1.01 }}
+            style={{ flexGrow: 1 }}
+          >
+            <TextField
+              fullWidth
+              variant="outlined"
+              placeholder="Ask me anything... 🇳🇬"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSend()}
+            />
+          </motion.div>
+          <motion.div whileTap={{ scale: 0.85 }} whileHover={{ scale: 1.2 }}>
+            <IconButton color="primary" onClick={handleSend}>
+              <SendIcon />
+            </IconButton>
+          </motion.div>
         </Box>
       </Container>
-    </Box>
+    </motion.div>
   )
 }
 
