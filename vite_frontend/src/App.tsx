@@ -6,7 +6,6 @@ import {
   Paper,
   Typography,
   Box,
-  CircularProgress,
 } from "@mui/material"
 import SendIcon from "@mui/icons-material/Send"
 import { motion } from "framer-motion"
