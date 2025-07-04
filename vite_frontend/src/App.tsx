@@ -73,7 +73,7 @@ const App: React.FC = () => {
 
     // Simulate bot delay
     setTimeout(async () => {
-      const response = await fetch('https://your-render-backend-url.onrender.com/chat', {
+      const response = await fetch('https://ai-chatbot-api.onrender.com/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: newMessage.content })
