@@ -6,10 +6,8 @@ import {
   Paper,
   Typography,
   Box,
-  CircularProgress,
   Switch,
   Tooltip,
-  Button,
 } from "@mui/material"
 import SendIcon from "@mui/icons-material/Send"
 import DeleteIcon from "@mui/icons-material/Delete"
