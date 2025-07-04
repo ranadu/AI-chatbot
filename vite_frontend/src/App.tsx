@@ -1,13 +1,14 @@
-// src/App.tsx
-import { useEffect, useRef, useState } from 'react';
-import { marked } from 'marked';
-import DOMPurify from 'dompurify';
-import Picker from 'emoji-picker-react';
-import './App.css';
+import { useState, useEffect, useRef } from "react";
+import "./App.css";
+import Picker from "emoji-picker-react";
+import { marked } from "marked";
+import DOMPurify from "dompurify";
+
+const BACKEND_URL = "https://ai-chatbot-8g4u.onrender.com/chat";
 
 type Message = {
-  type: 'user' | 'bot';
-  content: string;
+  sender: "user" | "bot";
+  text: string;
   timestamp: string;
 };
 
@@ -17,203 +18,186 @@ type ChatSession = {
   messages: Message[];
 };
 
-const BACKEND_URL = 'https://ai-chatbot-8g4u.onrender.com';
+export default function App() {
+  const [chatSessions, setChatSessions] = useState<ChatSession[]>([
+    { id: crypto.randomUUID(), title: "New Chat", messages: [] },
+  ]);
+  const [activeChatId, setActiveChatId] = useState(chatSessions[0].id);
+  const [input, setInput] = useState("");
+  const [isDark, setIsDark] = useState(true);
+  const [showEmoji, setShowEmoji] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
-function App() {
-  const [input, setInput] = useState('');
-  const [sessions, setSessions] = useState<ChatSession[]>([]);
-  const [currentSessionId, setCurrentSessionId] = useState('');
-  const [isBotTyping, setIsBotTyping] = useState(false);
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [darkMode, setDarkMode] = useState(true);
-  const chatEndRef = useRef<HTMLDivElement>(null);
-  const audioRef = useRef<HTMLAudioElement>(null);
-
-  useEffect(() => {
-    const defaultSession: ChatSession = {
-      id: crypto.randomUUID(),
-      title: 'New Chat',
-      messages: [],
-    };
-    setSessions([defaultSession]);
-    setCurrentSessionId(defaultSession.id);
-  }, []);
+  const activeChat = chatSessions.find((c) => c.id === activeChatId)!;
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [sessions, currentSessionId]);
+    scrollToBottom();
+  }, [activeChat.messages]);
 
-  const getCurrentSession = (): ChatSession | undefined =>
-    sessions.find((s) => s.id === currentSessionId);
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const playSendSound = () => {
+    const audio = new Audio("https://cdn.pixabay.com/download/audio/2022/03/15/audio_f8e2236631.mp3?filename=click-124467.mp3");
+    audio.play();
+  };
 
   const handleSend = async () => {
     if (!input.trim()) return;
-
-    const userMessage: Message = {
-      type: 'user',
-      content: input,
+    const userMsg: Message = {
+      sender: "user",
+      text: input,
       timestamp: new Date().toLocaleTimeString(),
     };
-
-    const updatedSessions = sessions.map((session) =>
-      session.id === currentSessionId
-        ? {
-            ...session,
-            messages: [...session.messages, userMessage],
-          }
-        : session
-    );
-
-    setSessions(updatedSessions);
-    setInput('');
-    setIsBotTyping(true);
+    updateMessages(userMsg);
+    setInput("");
+    playSendSound();
+    setIsTyping(true);
 
     try {
       const res = await fetch(BACKEND_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: input }),
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user: activeChatId, message: input }),
       });
 
       const data = await res.json();
-      const rawMarkdown = await marked.parse(data.response || '');
-      const safeHTML = DOMPurify.sanitize(rawMarkdown);
-
-      const botMessage: Message = {
-        type: 'bot',
-        content: safeHTML,
+      const botMsg: Message = {
+        sender: "bot",
+        text: data.response || "Sorry, something went wrong.",
         timestamp: new Date().toLocaleTimeString(),
       };
-
-      setSessions((prev) =>
-        prev.map((session) =>
-          session.id === currentSessionId
-            ? {
-                ...session,
-                messages: [...session.messages, botMessage],
-              }
-            : session
-        )
-      );
-
-      if (audioRef.current) audioRef.current.play();
-    } catch (err) {
-      console.error(err);
+      updateMessages(botMsg);
+    } catch {
+      updateMessages({
+        sender: "bot",
+        text: "Sorry, something went wrong.",
+        timestamp: new Date().toLocaleTimeString(),
+      });
+    } finally {
+      setIsTyping(false);
     }
-
-    setIsBotTyping(false);
   };
 
-  const handleNewSession = () => {
-    const newSession: ChatSession = {
-      id: crypto.randomUUID(),
-      title: 'New Chat',
-      messages: [],
-    };
-    setSessions((prev) => [newSession, ...prev]);
-    setCurrentSessionId(newSession.id);
-  };
-
-  const handleClearHistory = () => {
-    setSessions((prev) =>
+  const updateMessages = (msg: Message) => {
+    setChatSessions((prev) =>
       prev.map((s) =>
-        s.id === currentSessionId ? { ...s, messages: [] } : s
+        s.id === activeChatId
+          ? { ...s, messages: [...s.messages, msg] }
+          : s
       )
     );
   };
 
-  const onEmojiClick = (emojiObject: any) => {
-    setInput((prev) => prev + emojiObject.emoji);
-    setShowEmojiPicker(false);
+  const renderMessage = (msg: Message, idx: number) => {
+    const sanitized = DOMPurify.sanitize(marked.parse(msg.text));
+    return (
+      <div
+        key={idx}
+        className={`chat-bubble ${msg.sender === "user" ? "user-bubble" : "bot-bubble"}`}
+        dangerouslySetInnerHTML={{ __html: sanitized }}
+      >
+      </div>
+    );
   };
 
-  const toggleTheme = () => setDarkMode((prev) => !prev);
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") handleSend();
+  };
+
+  const handleNewChat = () => {
+    const newSession: ChatSession = {
+      id: crypto.randomUUID(),
+      title: `Chat ${chatSessions.length + 1}`,
+      messages: [],
+    };
+    setChatSessions((prev) => [...prev, newSession]);
+    setActiveChatId(newSession.id);
+  };
+
+  const clearMessages = () => {
+    setChatSessions((prev) =>
+      prev.map((s) =>
+        s.id === activeChatId ? { ...s, messages: [] } : s
+      )
+    );
+  };
 
   return (
-    <div className={`app-container ${darkMode ? 'dark-mode' : 'light-mode'}`}>
-      <div className="chat-header">
-        <h1>
-          <span className="bot-avatar">🤖</span> AI Chatbot
-        </h1>
-        <div>
-          <button onClick={toggleTheme}>🌓</button>
-          <button onClick={handleNewSession}>➕</button>
-          <button onClick={handleClearHistory}>🗑️</button>
-        </div>
-      </div>
-
-      <div style={{ display: 'flex', flexGrow: 1 }}>
-        <div
-          style={{
-            width: '200px',
-            background: darkMode ? '#141427' : '#f0f0f0',
-            overflowY: 'auto',
-            padding: '1rem',
-            borderRight: darkMode ? '1px solid #333' : '1px solid #ddd',
-          }}
-        >
-          {sessions.map((s) => (
+    <div className={`app-container ${isDark ? "dark-mode" : "light-mode"}`}>
+      <div style={{ display: "flex", height: "100vh" }}>
+        {/* Sidebar */}
+        <div style={{ width: "200px", backgroundColor: isDark ? "#1e1e2e" : "#f0f0f0", padding: "1rem" }}>
+          <button onClick={handleNewChat}>New Chat</button>
+          {chatSessions.map((chat) => (
             <div
-              key={s.id}
-              onClick={() => setCurrentSessionId(s.id)}
+              key={chat.id}
+              onClick={() => setActiveChatId(chat.id)}
               style={{
-                padding: '0.5rem',
-                marginBottom: '0.5rem',
-                background:
-                  s.id === currentSessionId
-                    ? darkMode
-                      ? '#2a2a40'
-                      : '#d0d0ff'
-                    : 'transparent',
-                borderRadius: '8px',
-                cursor: 'pointer',
+                marginTop: "1rem",
+                padding: "0.5rem",
+                borderRadius: "8px",
+                background: chat.id === activeChatId ? (isDark ? "#444" : "#ccc") : "transparent",
+                cursor: "pointer",
               }}
             >
-              {s.title}
+              {chat.title}
             </div>
           ))}
         </div>
 
-        <div className="chat-area">
-          {getCurrentSession()?.messages.map((msg, i) => (
-            <div
-              key={i}
-              className={`chat-bubble ${msg.type === 'user' ? 'user-bubble' : 'bot-bubble'}`}
-              dangerouslySetInnerHTML={{ __html: msg.content }}
+        {/* Chat Area */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+          {/* Header */}
+          <div className="chat-header">
+            <h1>🤖 AI Chatbot</h1>
+            <div>
+              <button onClick={() => setIsDark((d) => !d)}>🌓</button>
+              <button onClick={handleNewChat}>➕</button>
+              <button onClick={clearMessages}>🗑️</button>
+            </div>
+          </div>
+
+          {/* Chat */}
+          <div className="chat-area">
+            {activeChat.messages.map((msg, i) => (
+              <div key={i}>
+                {renderMessage(msg, i)}
+                <div className="timestamp">{msg.timestamp}</div>
+              </div>
+            ))}
+            {isTyping && (
+              <div className="chat-bubble bot-bubble"><em>Bot is typing...</em></div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Input */}
+          <div className="chat-input-container">
+            <button onClick={() => setShowEmoji((v) => !v)}>😊</button>
+            <input
+              type="text"
+              placeholder="Type your message..."
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyPress}
             />
-          ))}
-          {isBotTyping && (
-            <div className="bot-bubble chat-bubble">
-              <em>Bot is typing...</em>
+            <button onClick={handleSend}>➤</button>
+          </div>
+          {showEmoji && (
+            <div style={{ position: "absolute", bottom: "70px", left: "20px", zIndex: 1000 }}>
+              <Picker
+                onEmojiClick={(emojiData) => {
+                  setInput((prev) => prev + emojiData.emoji);
+                  setShowEmoji(false);
+                }}
+              />
             </div>
           )}
-          <div ref={chatEndRef}></div>
         </div>
       </div>
-
-      <div className="chat-input-container">
-        <button onClick={() => setShowEmojiPicker(!showEmojiPicker)}>😊</button>
-        {showEmojiPicker && (
-          <div style={{ position: 'absolute', bottom: '80px', left: '10px', zIndex: 999 }}>
-            <Picker onEmojiClick={onEmojiClick} />
-          </div>
-        )}
-        <input
-          type="text"
-          placeholder="Type a message..."
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-        />
-        <button onClick={handleSend}>📤</button>
-      </div>
-
-      <audio
-        ref={audioRef}
-        src="https://assets.mixkit.co/sfx/preview/mixkit-software-interface-start-2574.mp3"
-      />
     </div>
   );
 }
-
-export default App;
