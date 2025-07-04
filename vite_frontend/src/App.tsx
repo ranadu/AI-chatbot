@@ -27,7 +27,7 @@ function App() {
   const handleSend = async () => {
     if (!input.trim()) return
 
-    const newMessages = [...messages, { type: "user", content: input }]
+    const newMessages: Message[] = [...messages, { type: "user", content: input }]
     setMessages(newMessages)
     setInput("")
     setLoading(true)
@@ -46,8 +46,10 @@ function App() {
         }
       )
 
-      const botMessage = response.data.response || response.data.message || "No response"
-      setMessages([...newMessages, { type: "bot", content: botMessage }])
+      const botMessage: string = response.data.response || response.data.message || "No response"
+      const newBotMsg: Message = { type: "bot", content: botMessage }
+
+      setMessages([...newMessages, newBotMsg])
     } catch (error) {
       setMessages([
         ...newMessages,
