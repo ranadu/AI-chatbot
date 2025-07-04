@@ -6,36 +6,55 @@ import {
   Paper,
   Typography,
   Box,
+  Switch,
+  AppBar,
+  Toolbar,
+  Button,
 } from "@mui/material"
 import SendIcon from "@mui/icons-material/Send"
 import { motion } from "framer-motion"
 import axios from "axios"
 
-type Message = {
+const THEME_KEY = "naija-chatbot-theme"
+const HISTORY_KEY = "naija-chatbot-history"
+
+interface Message {
   type: "user" | "bot"
   content: string
-  timestamp?: string
+  timestamp: string
 }
 
 function App() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      type: "bot",
-      content: "Omo! Wetin dey? How far, my guy?",
-      timestamp: new Date().toLocaleTimeString(),
-    },
-  ])
+  const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
-  const [isTyping, setIsTyping] = useState(false)
+  const [darkMode, setDarkMode] = useState<boolean>(
+    localStorage.getItem(THEME_KEY) === "dark"
+  )
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const storedHistory = localStorage.getItem(HISTORY_KEY)
+    if (storedHistory) {
+      setMessages(JSON.parse(storedHistory))
+    } else {
+      setMessages([
+        {
+          type: "bot",
+          content: "Omo! Wetin dey? How far, my guy?",
+          timestamp: new Date().toLocaleTimeString(),
+        },
+      ])
+    }
+  }, [])
+
+  useEffect(() => {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(messages))
+    scrollToBottom()
+  }, [messages])
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }
-
-  useEffect(() => {
-    scrollToBottom()
-  }, [messages, isTyping])
 
   const handleSend = async () => {
     if (!input.trim()) return
@@ -45,117 +64,112 @@ function App() {
       content: input,
       timestamp: new Date().toLocaleTimeString(),
     }
-    const newMessages = [...messages, userMessage]
-    setMessages(newMessages)
+    setMessages((prev) => [...prev, userMessage])
     setInput("")
-    setIsTyping(true)
 
     try {
       const response = await axios.post(
         "https://ai-chatbot-8g4u.onrender.com/chat",
-        {
-          user: "web",
-          message: input,
-        },
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
+        { user: "web", message: input },
+        { headers: { "Content-Type": "application/json" } }
       )
 
-      const botReply: Message = {
+      const botMessage: Message = {
         type: "bot",
         content:
           response.data.response ||
           response.data.message ||
-          "No response from server.",
+          "No response received",
         timestamp: new Date().toLocaleTimeString(),
       }
-
-      setTimeout(() => {
-        setMessages((prev) => [...prev, botReply])
-        setIsTyping(false)
-      }, 1000)
-    } catch (err) {
-      const errorMsg: Message = {
-        type: "bot",
-        content: "Wahala. Something no work. Try again later.",
-        timestamp: new Date().toLocaleTimeString(),
-      }
-      setMessages([...newMessages, errorMsg])
-      setIsTyping(false)
+      setMessages((prev) => [...prev, botMessage])
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        {
+          type: "bot",
+          content: "Wahala. Something no work. Try again later.",
+          timestamp: new Date().toLocaleTimeString(),
+        },
+      ])
     }
+  }
+
+  const toggleTheme = () => {
+    const newTheme = !darkMode
+    setDarkMode(newTheme)
+    localStorage.setItem(THEME_KEY, newTheme ? "dark" : "light")
+  }
+
+  const clearChat = () => {
+    setMessages([
+      {
+        type: "bot",
+        content: "Naija ChatBot ready. Ask me something!",
+        timestamp: new Date().toLocaleTimeString(),
+      },
+    ])
+    localStorage.removeItem(HISTORY_KEY)
+  }
+
+  const themeStyles = {
+    background: darkMode
+      ? "linear-gradient(135deg, #0f0c29, #302b63, #24243e)"
+      : "#f3f3f3",
+    textColor: darkMode ? "#fff" : "#000",
+    bubbleBot: darkMode ? "#eee" : "#ddd",
+    bubbleUser: darkMode ? "#1976d2" : "#1565c0",
   }
 
   return (
     <Box
       sx={{
         minHeight: "100vh",
-        background: "linear-gradient(135deg, #0f0c29, #302b63, #24243e)",
+        background: themeStyles.background,
         display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        padding: 2,
+        flexDirection: "column",
       }}
     >
+      <AppBar position="static" color={darkMode ? "default" : "primary"}>
+        <Toolbar sx={{ justifyContent: "space-between" }}>
+          <Typography variant="h6">Naija ChatBot 🇳🇬</Typography>
+          <Box>
+            <Button onClick={clearChat} color="inherit">
+              New Chat
+            </Button>
+            <Switch checked={darkMode} onChange={toggleTheme} />
+          </Box>
+        </Toolbar>
+      </AppBar>
+
       <Container
         maxWidth="sm"
         component={Paper}
         elevation={8}
         sx={{
+          flex: 1,
+          marginTop: 2,
           padding: 3,
           borderRadius: 3,
-          background: "#fff",
-          minHeight: "75vh",
+          background: darkMode ? "#1a1a1a" : "#fff",
           display: "flex",
           flexDirection: "column",
         }}
       >
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-        >
-          <Typography
-            variant="h5"
-            align="center"
-            gutterBottom
-            sx={{
-              fontWeight: "bold",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <span role="img" aria-label="chatbot" style={{ marginRight: 8 }}>
-              🤖
-            </span>
-            Naija ChatBot
-          </Typography>
-        </motion.div>
-
-        <Box
-          sx={{
-            flex: 1,
-            overflowY: "auto",
-            mb: 2,
-            pr: 1,
-          }}
-        >
+        <Box sx={{ flex: 1, overflowY: "auto", mb: 2, pr: 1 }}>
           {messages.map((msg, i) => (
             <motion.div
               key={i}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}
-              whileHover={{ scale: 1.015 }}
             >
               <Box
                 sx={{
                   mb: 1.5,
                   display: "flex",
-                  justifyContent: msg.type === "user" ? "flex-end" : "flex-start",
+                  justifyContent:
+                    msg.type === "user" ? "flex-end" : "flex-start",
                 }}
               >
                 <Box
@@ -164,23 +178,23 @@ function App() {
                     py: 1,
                     borderRadius: 2,
                     maxWidth: "75%",
-                    backgroundColor: msg.type === "user" ? "#1976d2" : "#eee",
-                    color: msg.type === "user" ? "white" : "black",
+                    backgroundColor:
+                      msg.type === "user"
+                        ? themeStyles.bubbleUser
+                        : themeStyles.bubbleBot,
+                    color: msg.type === "user" ? "white" : themeStyles.textColor,
                     boxShadow: 1,
-                    transition: "transform 0.2s ease-in-out",
+                    cursor: "default",
+                    transition: "transform 0.2s",
+                    "&:hover": {
+                      transform: "translateY(-2px)",
+                    },
                   }}
                 >
-                  <Typography variant="body2" sx={{ wordBreak: "break-word" }}>
-                    {msg.content}
-                  </Typography>
+                  <Typography variant="body2">{msg.content}</Typography>
                   <Typography
                     variant="caption"
-                    sx={{
-                      mt: 0.5,
-                      display: "block",
-                      textAlign: msg.type === "user" ? "right" : "left",
-                      opacity: 0.6,
-                    }}
+                    sx={{ display: "block", mt: 0.5, opacity: 0.6 }}
                   >
                     {msg.timestamp}
                   </Typography>
@@ -188,24 +202,6 @@ function App() {
               </Box>
             </motion.div>
           ))}
-
-          {isTyping && (
-            <Box sx={{ display: "flex", justifyContent: "flex-start", mb: 1 }}>
-              <Box
-                sx={{
-                  px: 2,
-                  py: 1,
-                  borderRadius: 2,
-                  backgroundColor: "#eee",
-                  color: "black",
-                  boxShadow: 1,
-                  fontStyle: "italic",
-                }}
-              >
-                Bot dey type...
-              </Box>
-            </Box>
-          )}
           <div ref={messagesEndRef} />
         </Box>
 
@@ -222,6 +218,7 @@ function App() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSend()}
+              autoFocus
             />
             <IconButton color="primary" onClick={handleSend}>
               <SendIcon />
