@@ -12,12 +12,13 @@ import {
   Tabs,
   Tab,
   Button,
+  useMediaQuery,
 } from "@mui/material"
 import SendIcon from "@mui/icons-material/Send"
 import DeleteIcon from "@mui/icons-material/Delete"
 import LightModeIcon from "@mui/icons-material/LightMode"
 import DarkModeIcon from "@mui/icons-material/DarkMode"
-import EmojiPicker from "emoji-picker-react"
+import EmojiPicker, { EmojiClickData } from "emoji-picker-react"
 import { motion } from "framer-motion"
 import axios from "axios"
 import { v4 as uuidv4 } from "uuid"
@@ -53,6 +54,7 @@ function App() {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [darkMode, setDarkMode] = useState(true)
   const chatEndRef = useRef<HTMLDivElement | null>(null)
+  const isMobile = useMediaQuery("(max-width:600px)")
 
   const currentMessages = sessions[currentSession].messages
 
@@ -106,7 +108,7 @@ function App() {
     }
   }
 
-  const handleEmojiClick = (emojiData: any) => {
+  const handleEmojiClick = (emojiData: EmojiClickData) => {
     setInput((prev) => prev + emojiData.emoji)
   }
 
@@ -142,13 +144,13 @@ function App() {
     <Box
       sx={{
         minHeight: "100vh",
-        bgcolor: darkMode ? "#1a1a2e" : "#f5f5f5",
+        bgcolor: darkMode ? "#121212" : "#f5f5f5",
         color: darkMode ? "#fff" : "#000",
         display: "flex",
         flexDirection: "column",
       }}
     >
-      <AppBar position="static" color={darkMode ? "default" : "primary"}>
+      <AppBar position="static" sx={{ bgcolor: darkMode ? "#1f1f2e" : "#1976d2" }}>
         <Toolbar sx={{ justifyContent: "space-between" }}>
           <Typography variant="h6">Naija ChatBot 🇳🇬</Typography>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
@@ -158,7 +160,7 @@ function App() {
               </IconButton>
             </Tooltip>
             <Tooltip title="New Chat">
-              <Button variant="outlined" onClick={startNewChat}>
+              <Button variant="outlined" color="inherit" onClick={startNewChat}>
                 New Chat
               </Button>
             </Tooltip>
@@ -177,10 +179,10 @@ function App() {
         variant="scrollable"
         scrollButtons="auto"
         sx={{
-          bgcolor: darkMode ? "#0f0f1a" : "#e0e0e0",
+          bgcolor: darkMode ? "#191931" : "#e0e0e0",
         }}
       >
-        {sessions.map((s, idx) => (
+        {sessions.map((s) => (
           <Tab key={s.id} label={s.title} />
         ))}
       </Tabs>
@@ -193,9 +195,9 @@ function App() {
           flex: 1,
           mt: 2,
           mb: 1,
-          p: 3,
+          p: isMobile ? 1 : 3,
           borderRadius: 3,
-          background: darkMode ? "#2e2e3a" : "#ffffff",
+          background: darkMode ? "#262641" : "#ffffff",
           overflow: "auto",
           display: "flex",
           flexDirection: "column",
@@ -204,9 +206,9 @@ function App() {
         {currentMessages.map((msg, i) => (
           <motion.div
             key={i}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
+            initial={{ opacity: 0, x: msg.type === "user" ? 100 : -100 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ type: "spring", stiffness: 200, damping: 20 }}
           >
             <Box
               sx={{
@@ -221,17 +223,17 @@ function App() {
                   py: 1,
                   borderRadius: 2,
                   maxWidth: "75%",
-                  backgroundColor: msg.type === "user" ? "#2196f3" : "#eeeeee",
+                  backgroundColor: msg.type === "user" ? "#2196f3" : "#e0e0e0",
                   color: msg.type === "user" ? "#fff" : "#000",
                   boxShadow: 2,
                   transition: "transform 0.2s",
                   "&:hover": {
-                    transform: "translateY(-2px)",
+                    transform: "scale(1.02)",
                   },
                 }}
               >
                 <Typography>{msg.content}</Typography>
-                <Typography variant="caption" sx={{ opacity: 0.6, fontSize: "0.75em" }}>
+                <Typography variant="caption" sx={{ opacity: 0.6 }}>
                   {msg.timestamp}
                 </Typography>
               </Box>
