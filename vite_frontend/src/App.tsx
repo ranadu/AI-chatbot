@@ -1,232 +1,241 @@
 import { useEffect, useRef, useState } from "react"
 import {
+  Box,
   Container,
   TextField,
   IconButton,
   Paper,
   Typography,
-  Box,
-  Switch,
-  AppBar,
-  Toolbar,
   Button,
+  Tabs,
+  Tab,
+  useTheme,
+  createTheme,
+  ThemeProvider,
+  CssBaseline,
 } from "@mui/material"
 import SendIcon from "@mui/icons-material/Send"
+import Brightness4Icon from "@mui/icons-material/Brightness4"
+import Brightness7Icon from "@mui/icons-material/Brightness7"
 import { motion } from "framer-motion"
+import Picker from "emoji-picker-react"
 import axios from "axios"
 
-const THEME_KEY = "naija-chatbot-theme"
-const HISTORY_KEY = "naija-chatbot-history"
-
-interface Message {
+type Message = {
   type: "user" | "bot"
   content: string
   timestamp: string
 }
 
-function App() {
-  const [messages, setMessages] = useState<Message[]>([])
-  const [input, setInput] = useState("")
-  const [darkMode, setDarkMode] = useState<boolean>(
-    localStorage.getItem(THEME_KEY) === "dark"
-  )
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+type ChatSession = {
+  id: string
+  title: string
+  messages: Message[]
+}
 
-  useEffect(() => {
-    const storedHistory = localStorage.getItem(HISTORY_KEY)
-    if (storedHistory) {
-      setMessages(JSON.parse(storedHistory))
-    } else {
-      setMessages([
+const getTime = () => new Date().toLocaleTimeString()
+
+function App() {
+  const scrollRef = useRef<HTMLDivElement | null>(null)
+  const [input, setInput] = useState("")
+  const [sessions, setSessions] = useState<ChatSession[]>([
+    {
+      id: crypto.randomUUID(),
+      title: "Chat 1",
+      messages: [
         {
           type: "bot",
-          content: "Omo! Wetin dey? How far, my guy?",
-          timestamp: new Date().toLocaleTimeString(),
+          content: "Naija ChatBot dey here again! Ask your question.",
+          timestamp: getTime(),
         },
-      ])
-    }
-  }, [])
+      ],
+    },
+  ])
+  const [currentSessionIdx, setCurrentSessionIdx] = useState(0)
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [darkMode, setDarkMode] = useState(false)
 
-  useEffect(() => {
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(messages))
-    scrollToBottom()
-  }, [messages])
+  const theme = createTheme({
+    palette: {
+      mode: darkMode ? "dark" : "light",
+      primary: {
+        main: "#1976d2",
+      },
+    },
+  })
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }
+  const currentSession = sessions[currentSessionIdx]
 
   const handleSend = async () => {
     if (!input.trim()) return
 
-    const userMessage: Message = {
+    const userMsg: Message = {
       type: "user",
       content: input,
-      timestamp: new Date().toLocaleTimeString(),
+      timestamp: getTime(),
     }
-    setMessages((prev) => [...prev, userMessage])
+
+    const updatedSession = {
+      ...currentSession,
+      messages: [...currentSession.messages, userMsg],
+    }
+
+    updateSession(updatedSession)
     setInput("")
 
     try {
-      const response = await axios.post(
-        "https://ai-chatbot-8g4u.onrender.com/chat",
-        { user: "web", message: input },
-        { headers: { "Content-Type": "application/json" } }
-      )
+      const res = await axios.post("https://ai-chatbot-8g4u.onrender.com/chat", {
+        user: "web",
+        message: input,
+      })
 
-      const botMessage: Message = {
+      const botReply: Message = {
         type: "bot",
-        content:
-          response.data.response ||
-          response.data.message ||
-          "No response received",
-        timestamp: new Date().toLocaleTimeString(),
+        content: res.data.response || res.data.message || "No response",
+        timestamp: getTime(),
       }
-      setMessages((prev) => [...prev, botMessage])
+
+      updateSession({
+        ...updatedSession,
+        messages: [...updatedSession.messages, botReply],
+      })
     } catch {
-      setMessages((prev) => [
-        ...prev,
-        {
-          type: "bot",
-          content: "Wahala. Something no work. Try again later.",
-          timestamp: new Date().toLocaleTimeString(),
-        },
-      ])
+      updateSession({
+        ...updatedSession,
+        messages: [
+          ...updatedSession.messages,
+          {
+            type: "bot",
+            content: "Wahala. Something no work. Try again later.",
+            timestamp: getTime(),
+          },
+        ],
+      })
     }
   }
 
-  const toggleTheme = () => {
-    const newTheme = !darkMode
-    setDarkMode(newTheme)
-    localStorage.setItem(THEME_KEY, newTheme ? "dark" : "light")
+  const updateSession = (session: ChatSession) => {
+    setSessions((prev) => {
+      const copy = [...prev]
+      copy[currentSessionIdx] = session
+      return copy
+    })
   }
 
-  const clearChat = () => {
-    setMessages([
-      {
-        type: "bot",
-        content: "Naija ChatBot ready. Ask me something!",
-        timestamp: new Date().toLocaleTimeString(),
-      },
-    ])
-    localStorage.removeItem(HISTORY_KEY)
+  const newChat = () => {
+    const newSession: ChatSession = {
+      id: crypto.randomUUID(),
+      title: `Chat ${sessions.length + 1}`,
+      messages: [
+        {
+          type: "bot",
+          content: "Naija ChatBot dey here again! Ask your question.",
+          timestamp: getTime(),
+        },
+      ],
+    }
+    setSessions([...sessions, newSession])
+    setCurrentSessionIdx(sessions.length)
   }
 
-  const themeStyles = {
-    background: darkMode
-      ? "linear-gradient(135deg, #0f0c29, #302b63, #24243e)"
-      : "#f3f3f3",
-    textColor: darkMode ? "#fff" : "#000",
-    bubbleBot: darkMode ? "#eee" : "#ddd",
-    bubbleUser: darkMode ? "#1976d2" : "#1565c0",
+  const handleEmojiClick = (e: any, emojiObject: any) => {
+    setInput((prev) => prev + emojiObject.emoji)
+    setShowEmojiPicker(false)
   }
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" })
+  }, [currentSession.messages])
 
   return (
-    <Box
-      sx={{
-        minHeight: "100vh",
-        background: themeStyles.background,
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
-      <AppBar position="static" color={darkMode ? "default" : "primary"}>
-        <Toolbar sx={{ justifyContent: "space-between" }}>
-          <Typography variant="h6">Naija ChatBot 🇳🇬</Typography>
-          <Box>
-            <Button onClick={clearChat} color="inherit">
-              New Chat
-            </Button>
-            <Switch checked={darkMode} onChange={toggleTheme} />
-          </Box>
-        </Toolbar>
-      </AppBar>
-
-      <Container
-        maxWidth="sm"
-        component={Paper}
-        elevation={8}
-        sx={{
-          flex: 1,
-          marginTop: 2,
-          padding: 3,
-          borderRadius: 3,
-          background: darkMode ? "#1a1a1a" : "#fff",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
-        <Box sx={{ flex: 1, overflowY: "auto", mb: 2, pr: 1 }}>
-          {messages.map((msg, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              <Box
-                sx={{
-                  mb: 1.5,
-                  display: "flex",
-                  justifyContent:
-                    msg.type === "user" ? "flex-end" : "flex-start",
-                }}
-              >
-                <Box
-                  sx={{
-                    px: 2,
-                    py: 1,
-                    borderRadius: 2,
-                    maxWidth: "75%",
-                    backgroundColor:
-                      msg.type === "user"
-                        ? themeStyles.bubbleUser
-                        : themeStyles.bubbleBot,
-                    color: msg.type === "user" ? "white" : themeStyles.textColor,
-                    boxShadow: 1,
-                    cursor: "default",
-                    transition: "transform 0.2s",
-                    "&:hover": {
-                      transform: "translateY(-2px)",
-                    },
-                  }}
-                >
-                  <Typography variant="body2">{msg.content}</Typography>
-                  <Typography
-                    variant="caption"
-                    sx={{ display: "block", mt: 0.5, opacity: 0.6 }}
-                  >
-                    {msg.timestamp}
-                  </Typography>
-                </Box>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <Box sx={{ backgroundColor: darkMode ? "#121212" : "#e3f2fd", minHeight: "100vh", p: 2 }}>
+        <Container maxWidth="md">
+          <Paper elevation={6} sx={{ borderRadius: 4, p: 2 }}>
+            <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+              <Typography variant="h6">🇳🇬 Naija ChatBot</Typography>
+              <Box>
+                <Button onClick={newChat} sx={{ mr: 1 }}>NEW CHAT</Button>
+                <IconButton onClick={() => setDarkMode(!darkMode)}>
+                  {darkMode ? <Brightness7Icon /> : <Brightness4Icon />}
+                </IconButton>
               </Box>
-            </motion.div>
-          ))}
-          <div ref={messagesEndRef} />
-        </Box>
+            </Box>
 
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.8 }}
-        >
-          <Box sx={{ display: "flex", gap: 1 }}>
-            <TextField
-              fullWidth
-              variant="outlined"
-              placeholder="Ask me anything... 🇳🇬"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSend()}
-              autoFocus
-            />
-            <IconButton color="primary" onClick={handleSend}>
-              <SendIcon />
-            </IconButton>
-          </Box>
-        </motion.div>
-      </Container>
-    </Box>
+            <Tabs value={currentSessionIdx} onChange={(_, newVal) => setCurrentSessionIdx(newVal)} variant="scrollable">
+              {sessions.map((session, idx) => (
+                <Tab key={session.id} label={session.title} />
+              ))}
+            </Tabs>
+
+            <Box
+              ref={scrollRef}
+              sx={{
+                height: "60vh",
+                overflowY: "auto",
+                backgroundColor: darkMode ? "#1e1e1e" : "#fafafa",
+                borderRadius: 2,
+                p: 2,
+                mt: 2,
+              }}
+            >
+              {currentSession.messages.map((msg, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.3, type: "spring" }}
+                >
+                  <Box
+                    display="flex"
+                    justifyContent={msg.type === "user" ? "flex-end" : "flex-start"}
+                    mb={1}
+                  >
+                    <Box
+                      sx={{
+                        px: 2,
+                        py: 1,
+                        borderRadius: 2,
+                        backgroundColor: msg.type === "user" ? "#1976d2" : "#ccc",
+                        color: msg.type === "user" ? "white" : "black",
+                        maxWidth: "75%",
+                        boxShadow: 3,
+                      }}
+                    >
+                      <Typography variant="body2">{msg.content}</Typography>
+                      <Typography variant="caption" display="block" textAlign="right" mt={0.5}>
+                        {msg.timestamp}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </motion.div>
+              ))}
+            </Box>
+
+            <Box display="flex" alignItems="center" mt={2}>
+              <IconButton onClick={() => setShowEmojiPicker(!showEmojiPicker)}>😊</IconButton>
+              {showEmojiPicker && (
+                <Box position="absolute" zIndex={999}>
+                  <Picker onEmojiClick={handleEmojiClick} />
+                </Box>
+              )}
+              <TextField
+                fullWidth
+                placeholder="Ask me anything... 🇳🇬"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                sx={{ mx: 1 }}
+              />
+              <IconButton onClick={handleSend} color="primary">
+                <SendIcon />
+              </IconButton>
+            </Box>
+          </Paper>
+        </Container>
+      </Box>
+    </ThemeProvider>
   )
 }
 
