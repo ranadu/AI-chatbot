@@ -64,9 +64,10 @@ export default function App() {
       });
 
       const data = await res.json();
+      const replyText = typeof data.response === "string" ? data.response : "Sorry, something went wrong.";
       const botMsg: Message = {
         sender: "bot",
-        text: data.response || "Sorry, something went wrong.",
+        text: replyText,
         timestamp: new Date().toLocaleTimeString(),
       };
       updateMessages(botMsg);
@@ -92,13 +93,14 @@ export default function App() {
   };
 
   const renderMessage = (msg: Message, idx: number) => {
-    const sanitized = DOMPurify.sanitize(marked.parse(msg.text));
+    const clean = DOMPurify.sanitize(marked.parse(msg.text));
     return (
-      <div
-        key={idx}
-        className={`chat-bubble ${msg.sender === "user" ? "user-bubble" : "bot-bubble"}`}
-        dangerouslySetInnerHTML={{ __html: sanitized }}
-      >
+      <div key={idx}>
+        <div
+          className={`chat-bubble ${msg.sender === "user" ? "user-bubble" : "bot-bubble"}`}
+          dangerouslySetInnerHTML={{ __html: clean }}
+        />
+        <div className="timestamp">{msg.timestamp}</div>
       </div>
     );
   };
@@ -162,12 +164,7 @@ export default function App() {
 
           {/* Chat */}
           <div className="chat-area">
-            {activeChat.messages.map((msg, i) => (
-              <div key={i}>
-                {renderMessage(msg, i)}
-                <div className="timestamp">{msg.timestamp}</div>
-              </div>
-            ))}
+            {activeChat.messages.map((msg, i) => renderMessage(msg, i))}
             {isTyping && (
               <div className="chat-bubble bot-bubble"><em>Bot is typing...</em></div>
             )}
