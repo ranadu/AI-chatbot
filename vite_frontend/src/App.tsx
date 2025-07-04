@@ -1,5 +1,5 @@
 // src/App.tsx
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import Picker from 'emoji-picker-react';
@@ -76,9 +76,12 @@ function App() {
       });
 
       const data = await res.json();
+      const rawMarkdown = await marked.parse(data.response || '');
+      const safeHTML = DOMPurify.sanitize(rawMarkdown);
+
       const botMessage: Message = {
         type: 'bot',
-        content: data.response,
+        content: safeHTML,
         timestamp: new Date().toLocaleTimeString(),
       };
 
@@ -176,9 +179,7 @@ function App() {
             <div
               key={i}
               className={`chat-bubble ${msg.type === 'user' ? 'user-bubble' : 'bot-bubble'}`}
-              dangerouslySetInnerHTML={{
-                __html: DOMPurify.sanitize(marked.parse(msg.content)),
-              }}
+              dangerouslySetInnerHTML={{ __html: msg.content }}
             />
           ))}
           {isBotTyping && (
@@ -207,7 +208,10 @@ function App() {
         <button onClick={handleSend}>📤</button>
       </div>
 
-      <audio ref={audioRef} src="https://assets.mixkit.co/sfx/preview/mixkit-software-interface-start-2574.mp3" />
+      <audio
+        ref={audioRef}
+        src="https://assets.mixkit.co/sfx/preview/mixkit-software-interface-start-2574.mp3"
+      />
     </div>
   );
 }
