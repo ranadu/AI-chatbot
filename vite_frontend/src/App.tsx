@@ -1,199 +1,188 @@
-import { useState, useEffect, useRef } from "react";
-import "./App.css";
-import Picker from "emoji-picker-react";
-import { marked } from "marked";
-import DOMPurify from "dompurify";
+import { useState, useEffect, useRef } from 'react';
+import { v4 as uuidv4 } from 'uuid';
+import Picker from 'emoji-picker-react';
+import { marked } from 'marked';
+import DOMPurify from 'dompurify';
 
-const BACKEND_URL = "https://ai-chatbot-8g4u.onrender.com/chat";
+const BACKEND_URL = 'https://ai-chatbot-8g4u.onrender.com/chat';
 
 type Message = {
-  sender: "user" | "bot";
+  type: 'user' | 'bot';
   text: string;
   timestamp: string;
 };
 
-type ChatSession = {
+type Session = {
   id: string;
   title: string;
   messages: Message[];
 };
 
 export default function App() {
-  const [chatSessions, setChatSessions] = useState<ChatSession[]>([
-    { id: crypto.randomUUID(), title: "New Chat", messages: [] },
-  ]);
-  const [activeChatId, setActiveChatId] = useState(chatSessions[0].id);
-  const [input, setInput] = useState("");
-  const [isDark, setIsDark] = useState(true);
-  const [showEmoji, setShowEmoji] = useState(false);
+  const [input, setInput] = useState('');
+  const [sessions, setSessions] = useState<Session[]>(() => {
+    const saved = localStorage.getItem('chat-sessions');
+    return saved ? JSON.parse(saved) : [{
+      id: uuidv4(),
+      title: 'New Chat',
+      messages: []
+    }];
+  });
+  const [currentId, setCurrentId] = useState(sessions[0].id);
   const [isTyping, setIsTyping] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const [darkMode, setDarkMode] = useState(true);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  const activeChat = chatSessions.find((c) => c.id === activeChatId)!;
+  const currentSession = sessions.find(s => s.id === currentId)!;
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [activeChat.messages]);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  const playSendSound = () => {
-    const audio = new Audio("https://cdn.pixabay.com/download/audio/2022/03/15/audio_f8e2236631.mp3?filename=click-124467.mp3");
+  const playSound = (type: 'send' | 'receive') => {
+    const audio = new Audio(type === 'send' ? '/send.mp3' : '/receive.mp3');
     audio.play();
   };
 
-  const handleSend = async () => {
+  const sendMessage = async () => {
     if (!input.trim()) return;
     const userMsg: Message = {
-      sender: "user",
+      type: 'user',
       text: input,
-      timestamp: new Date().toLocaleTimeString(),
+      timestamp: new Date().toLocaleTimeString()
     };
-    updateMessages(userMsg);
-    setInput("");
-    playSendSound();
+
+    const updatedSession: Session = {
+      ...currentSession,
+      messages: [...currentSession.messages, userMsg]
+    };
+    updateSession(updatedSession);
+    setInput('');
+    playSound('send');
     setIsTyping(true);
 
     try {
       const res = await fetch(BACKEND_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user: activeChatId, message: input }),
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user: currentId, message: userMsg.text })
       });
 
       const data = await res.json();
-      const replyText = typeof data.response === "string" ? data.response : "Sorry, something went wrong.";
       const botMsg: Message = {
-        sender: "bot",
-        text: replyText,
-        timestamp: new Date().toLocaleTimeString(),
+        type: 'bot',
+        text: data.response || 'No response',
+        timestamp: new Date().toLocaleTimeString()
       };
-      updateMessages(botMsg);
-    } catch {
-      updateMessages({
-        sender: "bot",
-        text: "Sorry, something went wrong.",
-        timestamp: new Date().toLocaleTimeString(),
+      updateSession({
+        ...updatedSession,
+        messages: [...updatedSession.messages, botMsg]
+      });
+      playSound('receive');
+    } catch (err) {
+      updateSession({
+        ...updatedSession,
+        messages: [...updatedSession.messages, {
+          type: 'bot',
+          text: '⚠️ Failed to connect.',
+          timestamp: new Date().toLocaleTimeString()
+        }]
       });
     } finally {
       setIsTyping(false);
     }
   };
 
-  const updateMessages = (msg: Message) => {
-    setChatSessions((prev) =>
-      prev.map((s) =>
-        s.id === activeChatId
-          ? { ...s, messages: [...s.messages, msg] }
-          : s
-      )
-    );
+  const updateSession = (newSession: Session) => {
+    const updated = sessions.map(s => (s.id === newSession.id ? newSession : s));
+    setSessions(updated);
+    localStorage.setItem('chat-sessions', JSON.stringify(updated));
   };
 
-  const renderMessage = (msg: Message, idx: number) => {
-    const clean = DOMPurify.sanitize(marked.parse(msg.text));
-    return (
-      <div key={idx}>
-        <div
-          className={`chat-bubble ${msg.sender === "user" ? "user-bubble" : "bot-bubble"}`}
-          dangerouslySetInnerHTML={{ __html: clean }}
-        />
-        <div className="timestamp">{msg.timestamp}</div>
-      </div>
-    );
+  const newChat = () => {
+    const id = uuidv4();
+    const newSesh: Session = { id, title: 'New Chat', messages: [] };
+    const updated = [newSesh, ...sessions];
+    setSessions(updated);
+    setCurrentId(id);
+    localStorage.setItem('chat-sessions', JSON.stringify(updated));
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") handleSend();
+  const clearChat = () => {
+    const cleared: Session = { ...currentSession, messages: [] };
+    updateSession(cleared);
   };
 
-  const handleNewChat = () => {
-    const newSession: ChatSession = {
-      id: crypto.randomUUID(),
-      title: `Chat ${chatSessions.length + 1}`,
-      messages: [],
-    };
-    setChatSessions((prev) => [...prev, newSession]);
-    setActiveChatId(newSession.id);
+  const toggleMode = () => setDarkMode(prev => !prev);
+
+  const onEmojiClick = (emoji: any) => {
+    setInput(prev => prev + emoji.emoji);
+    setShowEmojiPicker(false);
   };
 
-  const clearMessages = () => {
-    setChatSessions((prev) =>
-      prev.map((s) =>
-        s.id === activeChatId ? { ...s, messages: [] } : s
-      )
-    );
-  };
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+  }, [currentSession.messages, isTyping]);
 
   return (
-    <div className={`app-container ${isDark ? "dark-mode" : "light-mode"}`}>
-      <div style={{ display: "flex", height: "100vh" }}>
-        {/* Sidebar */}
-        <div style={{ width: "200px", backgroundColor: isDark ? "#1e1e2e" : "#f0f0f0", padding: "1rem" }}>
-          <button onClick={handleNewChat}>New Chat</button>
-          {chatSessions.map((chat) => (
+    <div className={`app-container ${darkMode ? 'dark-mode' : 'light-mode'}`}>
+      <div className="chat-header">
+        <h1><span className="bot-avatar">🤖</span> AI Chatbot</h1>
+        <div>
+          <button onClick={toggleMode}>🌓</button>
+          <button onClick={newChat}>➕</button>
+          <button onClick={clearChat}>🗑️</button>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', height: '100%' }}>
+        <aside style={{ width: '250px', borderRight: '1px solid #444', padding: '1rem', background: darkMode ? '#111' : '#eee' }}>
+          {sessions.map(s => (
             <div
-              key={chat.id}
-              onClick={() => setActiveChatId(chat.id)}
+              key={s.id}
+              onClick={() => setCurrentId(s.id)}
               style={{
-                marginTop: "1rem",
-                padding: "0.5rem",
-                borderRadius: "8px",
-                background: chat.id === activeChatId ? (isDark ? "#444" : "#ccc") : "transparent",
-                cursor: "pointer",
+                cursor: 'pointer',
+                fontWeight: s.id === currentId ? 'bold' : 'normal',
+                marginBottom: '0.5rem'
               }}
             >
-              {chat.title}
+              {s.title || 'Untitled'}
             </div>
           ))}
-        </div>
+        </aside>
 
-        {/* Chat Area */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-          {/* Header */}
-          <div className="chat-header">
-            <h1>🤖 AI Chatbot</h1>
-            <div>
-              <button onClick={() => setIsDark((d) => !d)}>🌓</button>
-              <button onClick={handleNewChat}>➕</button>
-              <button onClick={clearMessages}>🗑️</button>
-            </div>
-          </div>
-
-          {/* Chat */}
-          <div className="chat-area">
-            {activeChat.messages.map((msg, i) => renderMessage(msg, i))}
+        <main style={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+          <div className="chat-area" ref={scrollRef}>
+            {currentSession.messages.map((msg, i) => {
+              const clean = DOMPurify.sanitize(marked.parseSync(msg.text));
+              return (
+                <div key={i} className={`chat-bubble ${msg.type === 'user' ? 'user-bubble' : 'bot-bubble'}`}>
+                  <div dangerouslySetInnerHTML={{ __html: clean }} />
+                  <div className="timestamp">{msg.timestamp}</div>
+                </div>
+              );
+            })}
             {isTyping && (
-              <div className="chat-bubble bot-bubble"><em>Bot is typing...</em></div>
+              <div className="chat-bubble bot-bubble">
+                <em>Bot is typing...</em>
+              </div>
             )}
-            <div ref={messagesEndRef} />
           </div>
 
-          {/* Input */}
           <div className="chat-input-container">
-            <button onClick={() => setShowEmoji((v) => !v)}>😊</button>
+            <button onClick={() => setShowEmojiPicker(prev => !prev)}>😊</button>
+            {showEmojiPicker && (
+              <div style={{ position: 'absolute', bottom: '70px', zIndex: 999 }}>
+                <Picker onEmojiClick={onEmojiClick} />
+              </div>
+            )}
             <input
-              type="text"
-              placeholder="Type your message..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyPress}
+              onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
+              placeholder="Type a message..."
             />
-            <button onClick={handleSend}>➤</button>
+            <button onClick={sendMessage}>➤</button>
           </div>
-          {showEmoji && (
-            <div style={{ position: "absolute", bottom: "70px", left: "20px", zIndex: 1000 }}>
-              <Picker
-                onEmojiClick={(emojiData) => {
-                  setInput((prev) => prev + emojiData.emoji);
-                  setShowEmoji(false);
-                }}
-              />
-            </div>
-          )}
-        </div>
+        </main>
       </div>
     </div>
   );
