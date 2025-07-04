@@ -6,52 +6,44 @@ import {
   Paper,
   Typography,
   Box,
-  CircularProgress,
-  Tooltip,
+  Button,
 } from "@mui/material"
 import SendIcon from "@mui/icons-material/Send"
-import RestartAltIcon from "@mui/icons-material/RestartAlt"
-import DeleteIcon from "@mui/icons-material/Delete"
-import ContentCopyIcon from "@mui/icons-material/ContentCopy"
 import { motion } from "framer-motion"
 import axios from "axios"
-import Picker from "@emoji-mart/react"
-import data from "@emoji-mart/data"
+import EmojiPicker from "emoji-picker-react"
+import EmojiEmotionsIcon from "@mui/icons-material/EmojiEmotions"
 
 type Message = {
   type: "user" | "bot"
   content: string
-  timestamp: string
-  reaction?: string
+  timestamp?: string
 }
 
 function App() {
-  const [messages, setMessages] = useState<Message[]>(() => {
-    const saved = localStorage.getItem("chatHistory")
-    return saved ? JSON.parse(saved) : [{ type: "bot", content: "Omo! Wetin dey? How far, my guy?", timestamp: new Date().toLocaleTimeString() }]
-  })
-
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      type: "bot",
+      content: "Omo! Wetin dey? How far, my guy?",
+      timestamp: new Date().toLocaleTimeString(),
+    },
+  ])
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
-  const [showEmojiPickerIndex, setShowEmojiPickerIndex] = useState<number | null>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    scrollToBottom()
-    localStorage.setItem("chatHistory", JSON.stringify(messages))
-  }, [messages])
-
-  const scrollToBottom = () => {
-    setTimeout(() => {
-      containerRef.current?.scrollTo({ top: containerRef.current.scrollHeight, behavior: "smooth" })
-    }, 100)
-  }
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const bottomRef = useRef<HTMLDivElement | null>(null)
 
   const handleSend = async () => {
     if (!input.trim()) return
 
-    const timestamp = new Date().toLocaleTimeString()
-    const newMessages: Message[] = [...messages, { type: "user", content: input, timestamp }]
+    const newMessages: Message[] = [
+      ...messages,
+      {
+        type: "user",
+        content: input,
+        timestamp: new Date().toLocaleTimeString(),
+      },
+    ]
     setMessages(newMessages)
     setInput("")
     setLoading(true)
@@ -59,53 +51,53 @@ function App() {
     try {
       const response = await axios.post(
         "https://ai-chatbot-8g4u.onrender.com/chat",
-        {
-          user: "web",
-          message: input,
-        },
-        {
-          headers: { "Content-Type": "application/json" },
-        }
+        { user: "web", message: input },
+        { headers: { "Content-Type": "application/json" } }
       )
 
-      const botContent: string = response.data.response || response.data.message || "No response"
-      const newBotMsg: Message = { type: "bot", content: botContent, timestamp: new Date().toLocaleTimeString() }
+      const botMessage: string =
+        response.data.response || response.data.message || "No response"
 
-      setTimeout(() => {
-        setMessages([...newMessages, newBotMsg])
-        setLoading(false)
-      }, 800) // Simulate "typing..." delay
+      setMessages([
+        ...newMessages,
+        {
+          type: "bot",
+          content: botMessage,
+          timestamp: new Date().toLocaleTimeString(),
+        },
+      ])
     } catch {
       setMessages([
         ...newMessages,
-        { type: "bot", content: "Wahala. Something no work. Try again later.", timestamp: new Date().toLocaleTimeString() },
+        {
+          type: "bot",
+          content: "Wahala. Something no work. Try again later.",
+          timestamp: new Date().toLocaleTimeString(),
+        },
       ])
+    } finally {
       setLoading(false)
     }
   }
 
+  const handleEmojiClick = (emojiData: any) => {
+    setInput((prev) => prev + emojiData.emoji)
+  }
+
   const handleNewChat = () => {
-    const history = localStorage.getItem("chatHistory")
-    if (history) {
-      const allSessions = JSON.parse(localStorage.getItem("allChats") || "[]")
-      allSessions.push(JSON.parse(history))
-      localStorage.setItem("allChats", JSON.stringify(allSessions))
-    }
-
-    setMessages([{ type: "bot", content: "Omo! Wetin dey? How far, my guy?", timestamp: new Date().toLocaleTimeString() }])
-    localStorage.removeItem("chatHistory")
+    setMessages([
+      {
+        type: "bot",
+        content: "Naija ChatBot dey here again! Ask your question.",
+        timestamp: new Date().toLocaleTimeString(),
+      },
+    ])
+    setInput("")
   }
 
-  const handleCopy = (content: string) => {
-    navigator.clipboard.writeText(content)
-  }
-
-  const handleReaction = (emoji: any, index: number) => {
-    const newMessages = [...messages]
-    newMessages[index].reaction = emoji.native
-    setMessages(newMessages)
-    setShowEmojiPickerIndex(null)
-  }
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [messages])
 
   return (
     <Box
@@ -129,43 +121,21 @@ function App() {
           minHeight: "75vh",
           display: "flex",
           flexDirection: "column",
-          position: "relative",
         }}
       >
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
           <Typography
             variant="h5"
-            align="center"
             sx={{ fontWeight: "bold", display: "flex", alignItems: "center" }}
           >
-            <span role="img" aria-label="chatbot" style={{ marginRight: 8 }}>
-              🤖
-            </span>
-            Naija ChatBot
+            🤖 Naija ChatBot
           </Typography>
-          <Box>
-            <Tooltip title="New Chat">
-              <IconButton onClick={handleNewChat}>
-                <RestartAltIcon />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Clear Chat">
-              <IconButton onClick={() => setMessages([])}>
-                <DeleteIcon />
-              </IconButton>
-            </Tooltip>
-          </Box>
+          <Button onClick={handleNewChat} variant="outlined" size="small">
+            New Chat
+          </Button>
         </Box>
 
-        <Box
-          ref={containerRef}
-          sx={{
-            flex: 1,
-            overflowY: "auto",
-            mb: 2,
-            pr: 1,
-          }}
-        >
+        <Box sx={{ flex: 1, overflowY: "auto", mb: 2, pr: 1 }}>
           {messages.map((msg, i) => (
             <motion.div
               key={i}
@@ -175,16 +145,13 @@ function App() {
             >
               <Box
                 sx={{
-                  mb: 2,
+                  mb: 1.5,
                   display: "flex",
                   justifyContent: msg.type === "user" ? "flex-end" : "flex-start",
                 }}
               >
                 <Box
-                  onMouseEnter={() => setShowEmojiPickerIndex(i)}
-                  onMouseLeave={() => setShowEmojiPickerIndex(null)}
                   sx={{
-                    position: "relative",
                     px: 2,
                     py: 1,
                     borderRadius: 2,
@@ -192,55 +159,47 @@ function App() {
                     backgroundColor: msg.type === "user" ? "#1976d2" : "#eee",
                     color: msg.type === "user" ? "white" : "black",
                     boxShadow: 1,
-                    cursor: "pointer",
-                    "&:hover": { transform: "translateY(-2px)", transition: "0.2s" },
+                    position: "relative",
                   }}
                 >
-                  <Box display="flex" alignItems="center" gap={1}>
-                    {msg.type === "bot" && <span>🤖</span>}
-                    {msg.type === "user" && <span>🧍‍♂️</span>}
-                    <Typography variant="body1">{msg.content}</Typography>
-                    {msg.reaction && <span>{msg.reaction}</span>}
-                    <Tooltip title="Copy">
-                      <IconButton size="small" onClick={() => handleCopy(msg.content)}>
-                        <ContentCopyIcon fontSize="inherit" />
-                      </IconButton>
-                    </Tooltip>
-                  </Box>
-                  <Typography variant="caption" color="gray" display="block" mt={0.5}>
+                  {msg.content}
+                  <Typography variant="caption" sx={{ ml: 1, display: "block" }}>
                     {msg.timestamp}
                   </Typography>
-                  {showEmojiPickerIndex === i && (
-                    <Box sx={{ position: "absolute", top: "-350%", right: 0, zIndex: 10 }}>
-                      <Picker data={data} onEmojiSelect={(e) => handleReaction(e, i)} />
-                    </Box>
-                  )}
                 </Box>
               </Box>
             </motion.div>
           ))}
           {loading && (
-            <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
-              <CircularProgress size={24} />
-            </Box>
+            <Typography align="center" sx={{ opacity: 0.6 }}>
+              Typing...
+            </Typography>
           )}
+          <div ref={bottomRef}></div>
         </Box>
 
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
-          <Box sx={{ display: "flex", gap: 1 }}>
-            <TextField
-              fullWidth
-              variant="outlined"
-              placeholder="Ask me anything... 🇳🇬"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSend()}
-            />
-            <IconButton color="primary" onClick={handleSend}>
-              <SendIcon />
-            </IconButton>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <IconButton onClick={() => setShowEmojiPicker((prev) => !prev)}>
+            <EmojiEmotionsIcon />
+          </IconButton>
+          <TextField
+            fullWidth
+            variant="outlined"
+            placeholder="Ask me anything... 🇳🇬"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSend()}
+          />
+          <IconButton color="primary" onClick={handleSend}>
+            <SendIcon />
+          </IconButton>
+        </Box>
+
+        {showEmojiPicker && (
+          <Box sx={{ mt: 1 }}>
+            <EmojiPicker onEmojiClick={handleEmojiClick} />
           </Box>
-        </motion.div>
+        )}
       </Container>
     </Box>
   )
