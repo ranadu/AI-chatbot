@@ -9,7 +9,6 @@ import {
   Tab,
   Tooltip,
   Fade,
-  useTheme,
 } from "@mui/material"
 import SendIcon from "@mui/icons-material/Send"
 import AddIcon from "@mui/icons-material/Add"
@@ -20,7 +19,8 @@ import { useEffect, useRef, useState } from "react"
 import { motion } from "framer-motion"
 import { nanoid } from "nanoid"
 import axios from "axios"
-import Picker, { EmojiClickData } from "emoji-picker-react"
+import Picker from "emoji-picker-react"
+import type { EmojiClickData } from "emoji-picker-react"
 
 type Message = {
   type: "user" | "bot"
