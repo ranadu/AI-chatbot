@@ -11,9 +11,7 @@ import {
 import SendIcon from "@mui/icons-material/Send"
 import { motion } from "framer-motion"
 import axios from "axios"
-import qs from "qs"
 
-// Ensure strict typing with string literals
 type Message = {
   type: "user" | "bot"
   content: string
@@ -29,8 +27,7 @@ function App() {
   const handleSend = async () => {
     if (!input.trim()) return
 
-    const userMsg: Message = { type: "user", content: input }
-    const newMessages: Message[] = [...messages, userMsg]
+    const newMessages = [...messages, { type: "user", content: input }]
     setMessages(newMessages)
     setInput("")
     setLoading(true)
@@ -38,22 +35,24 @@ function App() {
     try {
       const response = await axios.post(
         "https://ai-chatbot-8g4u.onrender.com/chat",
-        qs.stringify({ user: "web", message: input }),
+        {
+          user: "web",
+          message: input,
+        },
         {
           headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
+            "Content-Type": "application/json",
           },
         }
       )
 
-      const botMsg: Message = { type: "bot", content: response.data.response }
-      setMessages([...newMessages, botMsg])
+      const botMessage = response.data.response || response.data.message || "No response"
+      setMessages([...newMessages, { type: "bot", content: botMessage }])
     } catch (error) {
-      const errorMsg: Message = {
-        type: "bot",
-        content: "Wahala. Something no work. Try again later.",
-      }
-      setMessages([...newMessages, errorMsg])
+      setMessages([
+        ...newMessages,
+        { type: "bot", content: "Wahala. Something no work. Try again later." },
+      ])
     } finally {
       setLoading(false)
     }
@@ -87,12 +86,7 @@ function App() {
           variant="h5"
           align="center"
           gutterBottom
-          sx={{
-            fontWeight: "bold",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
+          sx={{ fontWeight: "bold", display: "flex", alignItems: "center", justifyContent: "center" }}
         >
           <span role="img" aria-label="chatbot" style={{ marginRight: 8 }}>
             🤖
@@ -119,8 +113,7 @@ function App() {
                 sx={{
                   mb: 1.5,
                   display: "flex",
-                  justifyContent:
-                    msg.type === "user" ? "flex-end" : "flex-start",
+                  justifyContent: msg.type === "user" ? "flex-end" : "flex-start",
                 }}
               >
                 <Box
@@ -129,8 +122,7 @@ function App() {
                     py: 1,
                     borderRadius: 2,
                     maxWidth: "75%",
-                    backgroundColor:
-                      msg.type === "user" ? "#1976d2" : "#eee",
+                    backgroundColor: msg.type === "user" ? "#1976d2" : "#eee",
                     color: msg.type === "user" ? "white" : "black",
                     boxShadow: 1,
                   }}
