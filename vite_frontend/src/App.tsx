@@ -6,6 +6,7 @@ import {
   Paper,
   Typography,
   Box,
+  CircularProgress,
 } from "@mui/material"
 import SendIcon from "@mui/icons-material/Send"
 import { motion } from "framer-motion"
@@ -106,9 +107,9 @@ function App() {
           {messages.map((msg, i) => (
             <motion.div
               key={i}
-              initial={{ opacity: 0, y: 15, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ type: "spring", stiffness: 120, damping: 10 }}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
             >
               <Box
                 sx={{
@@ -133,49 +134,9 @@ function App() {
               </Box>
             </motion.div>
           ))}
-
-          {/* Typing indicator */}
           {loading && (
-            <Box
-              sx={{
-                display: "flex",
-                justifyContent: "flex-start",
-                alignItems: "center",
-                gap: 1,
-                pl: 1,
-                mt: 1,
-              }}
-            >
-              <motion.span
-                animate={{ opacity: [0.3, 1, 0.3] }}
-                transition={{ repeat: Infinity, duration: 1 }}
-                style={{
-                  width: 8,
-                  height: 8,
-                  background: "#888",
-                  borderRadius: "50%",
-                }}
-              />
-              <motion.span
-                animate={{ opacity: [0.3, 1, 0.3] }}
-                transition={{ repeat: Infinity, duration: 1, delay: 0.2 }}
-                style={{
-                  width: 8,
-                  height: 8,
-                  background: "#888",
-                  borderRadius: "50%",
-                }}
-              />
-              <motion.span
-                animate={{ opacity: [0.3, 1, 0.3] }}
-                transition={{ repeat: Infinity, duration: 1, delay: 0.4 }}
-                style={{
-                  width: 8,
-                  height: 8,
-                  background: "#888",
-                  borderRadius: "50%",
-                }}
-              />
+            <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
+              <CircularProgress size={24} />
             </Box>
           )}
         </Box>
