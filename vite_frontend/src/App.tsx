@@ -87,18 +87,6 @@ function App() {
       </div>
     </div>
   )
-
-
-  {messages.map((msg, i) => (
-  <div
-    key={i}
-    className={`chat-bubble ${msg.type === "user" ? "user-bubble" : "bot-bubble"}`}
-    style={{
-      animation: "fadeInUp 0.3s ease",
-    }}
-  >
-    {msg.content}
-  </div>
-))}
+}
 
 export default App
