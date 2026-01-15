@@ -38,8 +38,8 @@ async def chat(req: ChatRequest):
     }
 
     data = {
-        "model": "llama3-70b-8192",
-        "messages": messages
+    "model": "openai/gpt-oss-120b",
+    "messages": messages
     }
 
     response = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=data)
