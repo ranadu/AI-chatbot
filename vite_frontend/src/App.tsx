@@ -19,7 +19,7 @@ type Message = {
 
 function App() {
   const [messages, setMessages] = useState<Message[]>([
-    { type: "bot", content: "Omo! Wetin dey? How far, my guy?" },
+    { type: "bot", content: "Hello! How can I help you today?" },
   ])
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
@@ -27,7 +27,10 @@ function App() {
   const handleSend = async () => {
     if (!input.trim()) return
 
-    const newMessages: Message[] = [...messages, { type: "user", content: input }]
+    const newMessages: Message[] = [
+      ...messages,
+      { type: "user", content: input },
+    ]
     setMessages(newMessages)
     setInput("")
     setLoading(true)
@@ -46,14 +49,20 @@ function App() {
         }
       )
 
-      const botMessage: string = response.data.response || response.data.message || "No response"
+      const botMessage =
+        response.data.response || "Sorry, I couldn't generate a reply."
+
       const newBotMsg: Message = { type: "bot", content: botMessage }
 
       setMessages([...newMessages, newBotMsg])
     } catch (error) {
       setMessages([
         ...newMessages,
-        { type: "bot", content: "Wahala. Something no work. Try again later." },
+        {
+          type: "bot",
+          content:
+            "Something went wrong while connecting to the server. Please try again.",
+        },
       ])
     } finally {
       setLoading(false)
@@ -88,12 +97,17 @@ function App() {
           variant="h5"
           align="center"
           gutterBottom
-          sx={{ fontWeight: "bold", display: "flex", alignItems: "center", justifyContent: "center" }}
+          sx={{
+            fontWeight: "bold",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
         >
           <span role="img" aria-label="chatbot" style={{ marginRight: 8 }}>
             🤖
           </span>
-          Naija ChatBot
+          AI Chatbot Assistant
         </Typography>
 
         <Box
@@ -115,7 +129,8 @@ function App() {
                 sx={{
                   mb: 1.5,
                   display: "flex",
-                  justifyContent: msg.type === "user" ? "flex-end" : "flex-start",
+                  justifyContent:
+                    msg.type === "user" ? "flex-end" : "flex-start",
                 }}
               >
                 <Box
@@ -124,7 +139,8 @@ function App() {
                     py: 1,
                     borderRadius: 2,
                     maxWidth: "75%",
-                    backgroundColor: msg.type === "user" ? "#1976d2" : "#eee",
+                    backgroundColor:
+                      msg.type === "user" ? "#1976d2" : "#eee",
                     color: msg.type === "user" ? "white" : "black",
                     boxShadow: 1,
                   }}
@@ -134,6 +150,7 @@ function App() {
               </Box>
             </motion.div>
           ))}
+
           {loading && (
             <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
               <CircularProgress size={24} />
@@ -145,12 +162,12 @@ function App() {
           <TextField
             fullWidth
             variant="outlined"
-            placeholder="Ask me anything... 🇳🇬"
+            placeholder="Type your message..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSend()}
           />
-          <IconButton color="primary" onClick={handleSend}>
+          <IconButton color="primary" onClick={handleSend} disabled={loading}>
             <SendIcon />
           </IconButton>
         </Box>
