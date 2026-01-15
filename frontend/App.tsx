@@ -36,7 +36,7 @@ export default function App() {
     } catch (error) {
       const errMessage = {
         sender: 'bot',
-        text: "Wahala o! I couldn't reach the brain right now. Try again later.",
+        text: "Sorry, I couldn't reach the assistant. Please try again shortly.",
       };
       setMessages((prev) => [...prev, errMessage]);
     }
@@ -89,7 +89,7 @@ export default function App() {
             }}
             value={input}
             onChangeText={setInput}
-            placeholder="Type something... 🇳🇬"
+            placeholder="Type your message..."
             onSubmitEditing={sendMessage}
             editable={!loading}
           />
