@@ -1,16 +1,7 @@
-import { useState } from "react"
-import {
-  Container,
-  TextField,
-  IconButton,
-  Paper,
-  Typography,
-  Box,
-  CircularProgress,
-} from "@mui/material"
-import SendIcon from "@mui/icons-material/Send"
-import { motion } from "framer-motion"
+// src/App.tsx
+import { useState, useRef, useEffect } from "react"
 import axios from "axios"
+import "./App.css"
 
 type Message = {
   type: "user" | "bot"
@@ -19,160 +10,82 @@ type Message = {
 
 function App() {
   const [messages, setMessages] = useState<Message[]>([
-    { type: "bot", content: "Hello! How can I help you today?" },
+    { type: "bot", content: "👋 Hello! How can I help you today?" },
   ])
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
+  const endRef = useRef<HTMLDivElement | null>(null)
 
   const handleSend = async () => {
     if (!input.trim()) return
 
-    const newMessages: Message[] = [
-      ...messages,
-      { type: "user", content: input },
-    ]
-    setMessages(newMessages)
+    const userMessage: Message = { type: "user", content: input }
+    setMessages((prev) => [...prev, userMessage])
     setInput("")
     setLoading(true)
 
     try {
-      const response = await axios.post(
-        "https://ai-chatbot-8g4u.onrender.com/chat",
-        {
-          user: "web",
-          message: input,
-        },
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      )
+      const res = await axios.post("https://ai-chatbot-8g4u.onrender.com/chat", {
+        user: "robert",
+        message: input,
+      })
 
-      const botMessage =
-        response.data.response || "Sorry, I couldn't generate a reply."
+      const botMessage: Message = {
+        type: "bot",
+        content: res.data.response || "No response",
+      }
 
-      const newBotMsg: Message = { type: "bot", content: botMessage }
-
-      setMessages([...newMessages, newBotMsg])
-    } catch (error) {
-      setMessages([
-        ...newMessages,
-        {
-          type: "bot",
-          content:
-            "Something went wrong while connecting to the server. Please try again.",
-        },
+      setMessages((prev) => [...prev, botMessage])
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        { type: "bot", content: "Sorry, something went wrong." },
       ])
     } finally {
       setLoading(false)
     }
   }
 
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [messages])
+
   return (
-    <Box
-      sx={{
-        minHeight: "100vh",
-        background: "linear-gradient(135deg, #0f0c29, #302b63, #24243e)",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        padding: 2,
-      }}
-    >
-      <Container
-        maxWidth="sm"
-        component={Paper}
-        elevation={8}
-        sx={{
-          padding: 3,
-          borderRadius: 3,
-          background: "#fff",
-          minHeight: "75vh",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
-        <Typography
-          variant="h5"
-          align="center"
-          gutterBottom
-          sx={{
-            fontWeight: "bold",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <span role="img" aria-label="chatbot" style={{ marginRight: 8 }}>
-            🤖
-          </span>
-          AI Chatbot Assistant
-        </Typography>
+    <div className="app-container">
+      <div className="chat-window">
+        <header className="chat-header">
+          🤖 <span className="chat-title">AI Chatbot Assistant</span>
+        </header>
 
-        <Box
-          sx={{
-            flex: 1,
-            overflowY: "auto",
-            mb: 2,
-            pr: 1,
-          }}
-        >
+        <div className="chat-body">
           {messages.map((msg, i) => (
-            <motion.div
+            <div
               key={i}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
+              className={`chat-bubble ${msg.type === "user" ? "user-bubble" : "bot-bubble"}`}
             >
-              <Box
-                sx={{
-                  mb: 1.5,
-                  display: "flex",
-                  justifyContent:
-                    msg.type === "user" ? "flex-end" : "flex-start",
-                }}
-              >
-                <Box
-                  sx={{
-                    px: 2,
-                    py: 1,
-                    borderRadius: 2,
-                    maxWidth: "75%",
-                    backgroundColor:
-                      msg.type === "user" ? "#1976d2" : "#eee",
-                    color: msg.type === "user" ? "white" : "black",
-                    boxShadow: 1,
-                  }}
-                >
-                  {msg.content}
-                </Box>
-              </Box>
-            </motion.div>
+              {msg.content}
+            </div>
           ))}
+          {loading && <div className="bot-bubble">Typing...</div>}
+          <div ref={endRef} />
+        </div>
 
-          {loading && (
-            <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
-              <CircularProgress size={24} />
-            </Box>
-          )}
-        </Box>
-
-        <Box sx={{ display: "flex", gap: 1 }}>
-          <TextField
-            fullWidth
-            variant="outlined"
+        <div className="chat-input-area">
+          <input
+            className="chat-input"
+            type="text"
             placeholder="Type your message..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSend()}
+            disabled={loading}
           />
-          <IconButton color="primary" onClick={handleSend} disabled={loading}>
-            <SendIcon />
-          </IconButton>
-        </Box>
-      </Container>
-    </Box>
+          <button className="send-button" onClick={handleSend} disabled={loading}>
+            ➤
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
 
