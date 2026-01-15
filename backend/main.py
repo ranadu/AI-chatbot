@@ -28,7 +28,7 @@ class ChatRequest(BaseModel):
 async def chat(req: ChatRequest):
     memory = get_past_interactions(req.user, limit=5)
     messages = [
-        {"role": "system", "content": "You're a funny Nigerian assistant. Use slang like 'Omo', 'Wahala', 'No vex', but also give smart answers."},
+        {"role": "system", "content": "You are a helpful, friendly assistant. Be clear, concise, and supportive."},
         {"role": "user", "content": "\n".join(memory + [f"User: {req.message}", "Bot:"])}
     ]
 
