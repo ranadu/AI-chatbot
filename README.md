@@ -2,8 +2,6 @@
 
 A beautiful, full-stack AI chatbot web app built with **FastAPI**, **React + TypeScript**, and **GROQ LLM API**, featuring real-time chat, persistent memory, and a sleek Apple-style UI. Designed for both aesthetics and functionality.
 
-[![Vercel Deployment](https://vercel.com/button)](https://ai-chatbot-6exc3rj2v-roberts-projects.vercel.app)
-
 ---
 
 ## ✨ Features
