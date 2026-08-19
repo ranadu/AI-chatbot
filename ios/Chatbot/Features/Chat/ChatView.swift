@@ -5,45 +5,51 @@ import SwiftUI
 struct ChatView: View {
     let conversation: Conversation
 
-    @Environment(\.modelContext) private var modelContext
     @Environment(AppSettings.self) private var settings
+    @Environment(\.modelContext) private var modelContext
 
-    @State private var model: ChatViewModel?
+    @State private var model: ChatViewModel
     @State private var isShowingClearConfirmation = false
     @FocusState private var isComposerFocused: Bool
+
+    /// The model context and settings come from the parent, which already has them, so the
+    /// view model can be built up front rather than appearing a frame late.
+    init(conversation: Conversation, modelContext: ModelContext, settings: AppSettings) {
+        self.conversation = conversation
+        _model = State(initialValue: ChatViewModel(
+            conversation: conversation,
+            modelContext: modelContext,
+            service: settings.makeService(),
+            memoryKey: conversation.memoryKey(
+                userID: settings.effectiveUserID,
+                scopedPerConversation: settings.scopedMemoryPerConversation
+            )
+        ))
+    }
 
     var body: some View {
         VStack(spacing: 0) {
             transcript
-            if let model {
-                ComposerView(
-                    text: Binding(get: { model.draft }, set: { model.draft = $0 }),
-                    isSending: model.isAwaitingReply,
-                    canSend: model.canSend,
-                    sendOnReturn: settings.sendOnReturn,
-                    onSend: { Task { await model.send() } },
-                    isFocused: $isComposerFocused
-                )
-            }
+            ComposerView(
+                text: $model.draft,
+                isSending: model.isAwaitingReply,
+                canSend: model.canSend,
+                sendOnReturn: settings.sendOnReturn,
+                onSend: { model.send() },
+                onStop: { model.cancel() },
+                isFocused: $isComposerFocused
+            )
         }
         .background(Theme.Palette.canvas)
         .navigationTitle(conversation.displayTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { toolbarContent }
-        .task {
-            // Built here rather than in `init` so the model context and settings are available.
-            if model == nil {
-                model = ChatViewModel(
-                    conversation: conversation,
-                    modelContext: modelContext,
-                    service: settings.makeService(),
-                    memoryKey: currentMemoryKey
-                )
-            }
-        }
-        .onChange(of: settings.baseURLString) { _, _ in model?.service = settings.makeService() }
-        .onChange(of: settings.userID) { _, _ in model?.memoryKey = currentMemoryKey }
-        .onChange(of: settings.scopedMemoryPerConversation) { _, _ in model?.memoryKey = currentMemoryKey }
+        .onChange(of: settings.baseURLString) { _, _ in model.service = settings.makeService() }
+        .onChange(of: settings.userID) { _, _ in model.memoryKey = currentMemoryKey }
+        .onChange(of: settings.scopedMemoryPerConversation) { _, _ in model.memoryKey = currentMemoryKey }
+        .sensoryFeedback(.impact(weight: .light), trigger: model.sentCount)
+        .sensoryFeedback(.success, trigger: model.receivedCount)
+        .sensoryFeedback(.error, trigger: model.failureCount)
         .confirmationDialog("Clear this conversation?", isPresented: $isShowingClearConfirmation, titleVisibility: .visible) {
             Button("Clear Messages", role: .destructive) {
                 ChatStore.clearMessages(in: conversation, context: modelContext)
@@ -66,20 +72,37 @@ struct ChatView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: Theme.Spacing.m) {
-                    ForEach(conversation.orderedMessages) { message in
-                        MessageBubble(message: message) {
-                            Task { await model?.retry() }
+                    ForEach(transcriptItems) { item in
+                        switch item {
+                        case .day(let date):
+                            DaySeparator(date: date)
+                        case .message(let message):
+                            MessageBubble(message: message) { model.retry() }
+                                .id(message.id)
+                                .transition(.opacity)
                         }
-                        .id(message.id)
-                        .transition(.opacity)
                     }
 
-                    if model?.isAwaitingReply == true {
-                        TypingIndicator()
+                    if model.isEmpty {
+                        SuggestionsView { model.send(prompt: $0) }
                     }
 
-                    if let failure = model?.failure {
-                        FailureBanner(error: failure) { model?.dismissFailure() }
+                    if model.isAwaitingReply {
+                        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+                            TypingIndicator()
+                            if model.isTakingLonger {
+                                Text("Still waiting. A free-tier server can take up to a minute to wake up.")
+                                    .font(.caption)
+                                    .foregroundStyle(Theme.Palette.secondaryText)
+                                    .padding(.leading, Theme.Spacing.xs)
+                                    .transition(.opacity)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    if let failure = model.failure {
+                        FailureBanner(error: failure) { model.dismissFailure() }
                     }
 
                     // A stable anchor to scroll to, so the target doesn't depend on which
@@ -96,8 +119,9 @@ struct ChatView: View {
             }
             .scrollDismissesKeyboard(.interactively)
             .defaultScrollAnchor(.bottom)
+            .animation(.easeInOut(duration: 0.2), value: model.isTakingLonger)
             .onChange(of: conversation.messages.count) { _, _ in scrollToEnd(proxy) }
-            .onChange(of: model?.isAwaitingReply) { _, _ in scrollToEnd(proxy) }
+            .onChange(of: model.isAwaitingReply) { _, _ in scrollToEnd(proxy) }
             .onChange(of: isComposerFocused) { _, focused in
                 if focused { scrollToEnd(proxy) }
             }
@@ -109,6 +133,34 @@ struct ChatView: View {
     private func scrollToEnd(_ proxy: ScrollViewProxy) {
         withAnimation(.easeOut(duration: 0.25)) {
             proxy.scrollTo(Self.bottomAnchor, anchor: .bottom)
+        }
+    }
+
+    /// Messages with a date header inserted whenever the day changes.
+    private var transcriptItems: [TranscriptItem] {
+        var items: [TranscriptItem] = []
+        var lastDay: Date?
+        let calendar = Calendar.current
+        for message in conversation.orderedMessages {
+            let day = calendar.startOfDay(for: message.createdAt)
+            if day != lastDay {
+                items.append(.day(day))
+                lastDay = day
+            }
+            items.append(.message(message))
+        }
+        return items
+    }
+
+    private enum TranscriptItem: Identifiable {
+        case day(Date)
+        case message(Message)
+
+        var id: String {
+            switch self {
+            case .day(let date): return "day-\(date.timeIntervalSinceReferenceDate)"
+            case .message(let message): return "message-\(message.id)"
+            }
         }
     }
 
@@ -136,6 +188,30 @@ struct ChatView: View {
         conversation.orderedMessages
             .map { "\($0.isFromUser ? "You" : "Assistant"): \($0.text)" }
             .joined(separator: "\n\n")
+    }
+}
+
+/// "Today", "Yesterday", or a date — centred between the bubbles it divides.
+private struct DaySeparator: View {
+    let date: Date
+
+    private static let formatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        formatter.doesRelativeDateFormatting = true
+        return formatter
+    }()
+
+    var body: some View {
+        Text(Self.formatter.string(from: date))
+            .font(.caption2.weight(.medium))
+            .foregroundStyle(Theme.Palette.secondaryText)
+            .padding(.horizontal, Theme.Spacing.m)
+            .padding(.vertical, Theme.Spacing.xs)
+            .background(Theme.Palette.assistantBubble.opacity(0.6), in: Capsule())
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, Theme.Spacing.xs)
     }
 }
 
@@ -175,10 +251,11 @@ private struct FailureBanner: View {
 #Preview {
     let container = ChatStore.makePreviewContainer()
     let conversation = try! container.mainContext.fetch(FetchDescriptor<Conversation>()).first!
+    let settings = AppSettings(defaults: .previewDefaults)
 
     NavigationStack {
-        ChatView(conversation: conversation)
+        ChatView(conversation: conversation, modelContext: container.mainContext, settings: settings)
     }
     .modelContainer(container)
-    .environment(AppSettings(defaults: .previewDefaults))
+    .environment(settings)
 }

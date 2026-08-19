@@ -4,7 +4,11 @@ import CoreText
 import Foundation
 
 // Produces the final AppIcon set for the Chatbot iOS app.
-// Usage: swift IconFinal.swift <output-dir>
+// Usage: swift GenerateAppIcon.swift <appiconset-dir> [preview-dir]
+//
+// The optional second argument writes a contact sheet of all three variants at Home
+// Screen, Spotlight and Settings sizes. Leave it off when writing into the asset catalog:
+// Xcode flags files it doesn't expect inside an .appiconset.
 //
 // The mark is one glyph — a robot head in the app's bubble silhouette, with the eyes,
 // mouth and antenna cut through it. Because the features are holes rather than filled
@@ -80,9 +84,10 @@ func makeGlyph(size s: CGFloat) -> CGImage {
         ctx.addEllipse(in: CGRect(x: x - eyeR, y: eyeY - eyeR, width: eyeR * 2, height: eyeR * 2))
         ctx.fillPath()
     }
+    // Tall enough to survive the 40pt Settings size, where a hairline mouth vanishes.
     ctx.addPath(CGPath(
-        roundedRect: CGRect(x: head.midX - 92 * u, y: head.minY + 92 * u, width: 184 * u, height: 40 * u),
-        cornerWidth: 20 * u, cornerHeight: 20 * u, transform: nil
+        roundedRect: CGRect(x: head.midX - 96 * u, y: head.minY + 86 * u, width: 192 * u, height: 56 * u),
+        cornerWidth: 28 * u, cornerHeight: 28 * u, transform: nil
     ))
     ctx.fillPath()
     ctx.setBlendMode(.normal)

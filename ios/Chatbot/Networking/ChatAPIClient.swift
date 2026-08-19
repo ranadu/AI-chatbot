@@ -41,6 +41,10 @@ struct ChatAPIClient: ChatService {
                 throw ChatServiceError.offline
             case .timedOut:
                 throw ChatServiceError.timedOut
+            case .cancelled:
+                // URLSession reports cancellation its own way; surface it as Swift's, so
+                // callers can treat "the user stopped it" separately from a real failure.
+                throw CancellationError()
             default:
                 throw ChatServiceError.backend(error.localizedDescription)
             }

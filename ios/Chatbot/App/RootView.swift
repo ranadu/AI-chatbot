@@ -10,6 +10,7 @@ import SwiftUI
 /// no `if horizontalSizeClass == .compact` branching to maintain here.
 struct RootView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(AppSettings.self) private var settings
     @Query(sort: \Conversation.updatedAt, order: .reverse) private var conversations: [Conversation]
 
     @State private var selectedConversationID: UUID?
@@ -29,7 +30,7 @@ struct RootView: View {
             )
         } detail: {
             if let conversation = selectedConversation {
-                ChatView(conversation: conversation)
+                ChatView(conversation: conversation, modelContext: modelContext, settings: settings)
                     // A new identity per thread gives each conversation its own view model
                     // and its own scroll position.
                     .id(conversation.id)

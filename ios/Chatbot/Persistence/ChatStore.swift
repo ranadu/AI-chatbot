@@ -65,10 +65,12 @@ enum ChatStore {
     /// Removes every message but the greeting, keeping the thread and its backend memory key.
     @MainActor
     static func clearMessages(in conversation: Conversation, context: ModelContext) {
-        for message in conversation.messages {
+        // Detach from the relationship *before* deleting, so nothing reads a deleted model.
+        let existing = conversation.messages
+        conversation.messages = []
+        for message in existing {
             context.delete(message)
         }
-        conversation.messages = []
         conversation.append(Message(role: .assistant, text: greeting))
         try? context.save()
     }
